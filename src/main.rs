@@ -1,6 +1,6 @@
 use std::io::Cursor;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use tiny_http::{HeaderField, Request, Server};
@@ -38,9 +38,9 @@ fn load_config() -> Config {
 
 fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connection> {
     // Change the database to WAL mode if it wasn't already. Set the busy
-    // timeout to 45 milliseconds, so readers and writers can wait for each
+    // timeout to 30 milliseconds, so readers and writers can wait for each
     // other a little bit. We also have a retry loop around the request handler.
-    raw_connection.execute("PRAGMA busy_timeout = 45;")?;
+    raw_connection.execute("PRAGMA busy_timeout = 30;")?;
     raw_connection.execute("PRAGMA journal_mode = WAL;")?;
     raw_connection.execute("PRAGMA foreign_keys = TRUE;")?;
     let mut connection = db::Connection::new(raw_connection);
@@ -140,15 +140,30 @@ fn main() {
     let n_threads = 4;
     let server = Arc::new(Server::http(&config.server.listen).unwrap());
     let mut guards = Vec::with_capacity(n_threads);
+    let init_mutex = Arc::new(Mutex::new(()));
 
     for _ in 0..n_threads {
         let server = server.clone();
         let config = config.clone();
+        let init_mutex = init_mutex.clone();
+
         let guard = thread::spawn(move || {
+            // The database connections need to be opened sequentially, because
+            // SQLite supports only a single writer at a time. If we let all
+            // threads run, then we encounter a "database is locked" error
+            // (error code 5). We do need to open the connection on the server
+            // threads though, we can't do it on the main thread because the
+            // `db::Connection` takes a `&sqlite::Connection`, and the latter
+            // is not `Sync`. So we have to initialize here. Setting the busy
+            // timeout helps but is fragile: on an underpowered VM the timeout
+            // may be insufficient. So mutexes it is.
+            let db_lock = init_mutex.lock().unwrap();
             let raw_connection =
                 sqlite::open(&config.database.path).expect("Failed to open database");
             let mut connection =
-                init_database(&raw_connection).expect("Failed to initialize database");
+                init_database(&raw_connection).expect("Failed to initialize database.");
+            std::mem::drop(db_lock);
+
             serve_forever(&config, &mut connection, &server)
         });
         guards.push(guard);
