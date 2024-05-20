@@ -2,6 +2,7 @@ use maud::{html, Markup, DOCTYPE};
 
 use tiny_http::Header;
 
+use crate::config::Config;
 use crate::database as db;
 use crate::{Response, User};
 
@@ -78,7 +79,11 @@ fn view_create_team() -> Markup {
     }
 }
 
-pub fn handle_index(tx: &mut db::Transaction, user: User) -> db::Result<Response> {
+pub fn handle_index(config: &Config, tx: &mut db::Transaction, user: User) -> db::Result<Response> {
     let body = view_index(user);
     Ok(respond_html(body))
+}
+
+pub fn handle_create_team(config: &Config, tx: &mut db::Transaction, user: User) -> db::Result<Response> {
+    Ok(respond_html(html! { "TODO" }))
 }

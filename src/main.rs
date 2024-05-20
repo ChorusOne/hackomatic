@@ -70,12 +70,7 @@ fn handle_request_impl(
     tx: &mut db::Transaction,
     request: &mut Request,
 ) -> db::Result<Response> {
-    println!(
-        "received request! method: {:?}, url: {:?}, headers: {:?}",
-        request.method(),
-        request.url(),
-        request.headers()
-    );
+    println!("{:?} {:?}", request.method(), request.url());
 
     // Figure out who the user is. In debug mode we fall back to a default.
     let header_x_email = HeaderField::from_str("X-Email").unwrap();
@@ -89,13 +84,23 @@ fn handle_request_impl(
         Some(email) => email,
         None => match config.debug.unsafe_default_email.as_ref() {
             Some(fallback) => fallback,
-            None => return Ok(Response::from_string("Missing authentication header.")),
+            None => return Ok(Response::from_string("Missing authentication header.").with_status_code(401)),
         },
     };
 
     let user = User { email };
 
-    endpoints::handle_index(tx, user)
+    let not_found = Response::from_string("Not found.").with_status_code(404);
+    let url_inner = match request.url().strip_prefix(&config.server.prefix) {
+        Some(url) => url,
+        None => return Ok(not_found),
+    };
+
+    match url_inner {
+        "" | "/" => endpoints::handle_index(config, tx, user),
+        "/create-team" => endpoints::handle_create_team(config, tx, user),
+        _ => Ok(not_found)
+    }
 }
 
 fn serve_forever(config: &Config, connection: &mut db::Connection, server: &Server) -> ! {

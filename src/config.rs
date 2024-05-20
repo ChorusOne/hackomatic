@@ -26,6 +26,11 @@ pub struct DebugConfig {
 pub struct ServerConfig {
     /// The interface address and port to listen on, e.g. `127.0.0.1:5591`.
     pub listen: String,
+
+    /// The url prefix, in case the app is not hosted at the root of a domain.
+    ///
+    /// E.g. `/hack-o-matic`.
+    pub prefix: String,
 }
 
 #[derive(Debug, Deserialize)]

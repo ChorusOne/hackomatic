@@ -1,5 +1,6 @@
 [server]
 listen = "127.0.0.1:5591"
+prefix = "/hack"
 
 [database]
 path = "hackomatic.sqlite3"
