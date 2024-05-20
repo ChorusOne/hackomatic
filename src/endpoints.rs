@@ -104,7 +104,7 @@ pub fn handle_index(
     Ok(respond_html(body))
 }
 
-/// Validate user inputs against a subset of Unicode.
+/// Validate user inputs against length limits and Unicode subset.
 ///
 /// Users should be able to input text, but allowing any Unicode code point
 /// creates a can of worms where you can use distracting emoji, or reverse the
@@ -114,12 +114,20 @@ pub fn handle_index(
 /// it'll do.
 ///
 /// Returns the offending character on error.
-fn is_string_sane(s: &str) -> Result<(), char> {
-    for ch in s.chars() {
+fn validate_string(label: &'static str, max_len: usize, input: &str) -> Result<(), String> {
+    if input.is_empty() {
+        return Err(format!("{label} must not be empty."));
+    }
+
+    if input.len() > max_len {
+        return Err(format!("{label} may not be longer than {max_len} bytes."));
+    }
+
+    for ch in input.chars() {
         // Control characters are not allowed (including newline).
         // Space (U+0020) is the first one that is allowed.
         if ch < '\u{20}' {
-            return Err(ch);
+            return Err(format!("{label} may not contain control characters (including newlines)."));
         }
 
         // Allow General Punctuation (U+2000 through U+206F).
@@ -131,7 +139,10 @@ fn is_string_sane(s: &str) -> Result<(), char> {
         // diacritics, then a few other languages like Greek and Cyrillic, but
         // stop after Arabic.
         if ch >= '\u{0780}' {
-            return Err(ch);
+            return Err(format!(
+                "{label} contains an invalid character: ‘{ch}’ (U+{:04X}) is not allowed.",
+                ch as u32
+            ));
         }
     }
 
@@ -155,31 +166,11 @@ pub fn handle_create_team(
         }
     }
 
-    if team_name.is_empty() {
-        return Ok(bad_request("The team name must not be empty."));
+    if let Err(msg) = validate_string("The team name", 65, &team_name) {
+        return Ok(bad_request(msg));
     }
-    if team_name.len() > 65 {
-        return Ok(bad_request("The team name may be no longer than 65 bytes."));
-    }
-    if let Err(ch) = is_string_sane(&team_name) {
-        return Ok(bad_request(format!(
-            "Invalid character in team name, '{ch}' (U+{:04X}) is not allowed.",
-            ch as u32
-        )));
-    }
-    if description.is_empty() {
-        return Ok(bad_request("The description must not be empty."));
-    }
-    if description.len() > 120 {
-        return Ok(bad_request(
-            "The description may be no longer than 120 bytes.",
-        ));
-    }
-    if let Err(ch) = is_string_sane(&description) {
-        return Ok(bad_request(format!(
-            "Invalid character in description, '{ch}' (U+{:04X}) is not allowed.",
-            ch as u32
-        )));
+    if let Err(msg) = validate_string("The description", 120, &description) {
+        return Ok(bad_request(msg));
     }
 
     let n_teams_by_user = db::count_teams_by_creator(tx, &user.email)?;
