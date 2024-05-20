@@ -12,6 +12,10 @@ fn respond_html(markup: Markup) -> Response {
     )
 }
 
+fn bad_request<R: Into<String>>(reason: R) -> Response {
+    Response::from_string(reason.into()).with_status_code(400)
+}
+
 /// Render the standard header that is the same across all pages.
 fn view_html_head(page_title: &str) -> Markup {
     html! {
@@ -46,7 +50,7 @@ fn get_stylesheet() -> Markup {
     html! { (data) }
 }
 
-fn view_index(user: User) -> Markup {
+fn view_index(config: &Config, user: &User) -> Markup {
     html! {
         (view_html_head("Hack-o-matic"))
         body {
@@ -58,7 +62,12 @@ fn view_index(user: User) -> Markup {
             }
             h2 { "Teams" }
             p { "Meet the contestants!" }
-            (view_create_team())
+            p {
+                details {
+                    summary { "Add a new team" }
+                    (form_create_team(config))
+                }
+            }
             h2 { "Vote" }
             p { "Voting has not commenced yet, check back later!" }
             h2 { "Winners" }
@@ -67,9 +76,10 @@ fn view_index(user: User) -> Markup {
     }
 }
 
-fn view_create_team() -> Markup {
+fn form_create_team(config: &Config) -> Markup {
+    let submit_url = format!("{}/create-team", config.server.prefix);
     html! {
-        form action="hack/create-team" method="post" {
+        form action=(submit_url) method="post" {
             label {
                 "Team name: ";
                 input name="team-name";
@@ -79,11 +89,75 @@ fn view_create_team() -> Markup {
     }
 }
 
-pub fn handle_index(config: &Config, tx: &mut db::Transaction, user: User) -> db::Result<Response> {
-    let body = view_index(user);
+pub fn handle_index(
+    config: &Config,
+    tx: &mut db::Transaction,
+    user: &User,
+) -> db::Result<Response> {
+    let body = view_index(config, &user);
     Ok(respond_html(body))
 }
 
-pub fn handle_create_team(config: &Config, tx: &mut db::Transaction, user: User) -> db::Result<Response> {
+/// Validate user inputs against a subset of Unicode.
+///
+/// Users should be able to input text, but allowing any Unicode code point
+/// creates a can of worms where you can use distracting emoji, or reverse the
+/// text direction for all following content, use the mathematical symbols to do
+/// "markup", etc. So ban most of Unicode, but allow more than just ASCII
+/// because Tomás and Mikołaj are valid non-ASCII names. This is very crude but
+/// it'll do.
+///
+/// Returns the offending character on error.
+fn is_string_sane(s: &str) -> Result<(), char> {
+    for ch in s.chars() {
+        // Control characters are not allowed (including newline).
+        // Space (U+0020) is the first one that is allowed.
+        if ch < '\u{20}' {
+            return Err(ch);
+        }
+
+        // Allow General Punctuation (U+2000 through U+206F).
+        if ch >= '\u{2000}' && ch < '\u{2070}' {
+            continue;
+        }
+
+        // Allow Basic Latin, the supplement, extended Latin, modifiers,
+        // diacritics, then a few other languages like Greek and Cyrillic, but
+        // stop after Arabic.
+        if ch >= '\u{0780}' {
+            return Err(ch);
+        }
+    }
+
+    Ok(())
+}
+
+pub fn handle_create_team(
+    config: &Config,
+    tx: &mut db::Transaction,
+    user: &User,
+    body: String,
+) -> db::Result<Response> {
+    let mut team_name = String::new();
+    for (key, value) in form_urlencoded::parse(body.as_bytes()) {
+        match key.as_ref() {
+            "team-name" => team_name = value.trim().to_string(),
+            _ => return Ok(bad_request("Unexpected form field, need 'team-name'.")),
+        }
+    }
+
+    if team_name.is_empty() {
+        return Ok(bad_request("The team name must not be empty."));
+    }
+    if team_name.len() > 100 {
+        return Ok(bad_request("Team name may be no longer than 100 bytes."));
+    }
+    if let Err(ch) = is_string_sane(&team_name) {
+        return Ok(bad_request(format!(
+            "Invalid character in team name, '{ch}' (U+{:04X}) is not allowed.",
+            ch as u32
+        )));
+    }
+
     Ok(respond_html(html! { "TODO" }))
 }

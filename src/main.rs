@@ -61,8 +61,8 @@ fn handle_request(
     Ok(response)
 }
 
-pub struct User<'a> {
-    email: &'a str,
+pub struct User {
+    email: String,
 }
 
 fn handle_request_impl(
@@ -77,14 +77,21 @@ fn handle_request_impl(
     let mut email = None;
     for header in request.headers() {
         if header.field == header_x_email {
-            email = Some(header.value.as_str());
+            // We need to clone the value, because later on we might need to
+            // read the request body, and we can't do that with a reference to
+            // a header.
+            email = Some(header.value.to_string());
         }
     }
     let email = match email {
         Some(email) => email,
-        None => match config.debug.unsafe_default_email.as_ref() {
+        None => match config.debug.unsafe_default_email.clone() {
             Some(fallback) => fallback,
-            None => return Ok(Response::from_string("Missing authentication header.").with_status_code(401)),
+            None => {
+                return Ok(
+                    Response::from_string("Missing authentication header.").with_status_code(401)
+                )
+            }
         },
     };
 
@@ -97,9 +104,16 @@ fn handle_request_impl(
     };
 
     match url_inner {
-        "" | "/" => endpoints::handle_index(config, tx, user),
-        "/create-team" => endpoints::handle_create_team(config, tx, user),
-        _ => Ok(not_found)
+        "" | "/" => endpoints::handle_index(config, tx, &user),
+        "/create-team" => {
+            // Read the body, ignore any IO errors there. In most cases this is
+            // probably fine and we'll fail elsewhere, but it might happen that
+            // we read a truncated body and fail half-way. TODO: Handle properly.
+            let mut body = String::new();
+            let _ = request.as_reader().read_to_string(&mut body);
+            endpoints::handle_create_team(config, tx, &user, body)
+        }
+        _ => Ok(not_found),
     }
 }
 
