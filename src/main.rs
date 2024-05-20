@@ -38,9 +38,9 @@ fn load_config() -> Config {
 
 fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connection> {
     // Change the database to WAL mode if it wasn't already. Set the busy
-    // timeout to 30 milliseconds, so readers and writers can wait for each
+    // timeout to 45 milliseconds, so readers and writers can wait for each
     // other a little bit. We also have a retry loop around the request handler.
-    raw_connection.execute("PRAGMA busy_timeout = 30;")?;
+    raw_connection.execute("PRAGMA busy_timeout = 45;")?;
     raw_connection.execute("PRAGMA journal_mode = WAL;")?;
     raw_connection.execute("PRAGMA foreign_keys = TRUE;")?;
     let mut connection = db::Connection::new(raw_connection);
