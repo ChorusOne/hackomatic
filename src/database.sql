@@ -2,9 +2,11 @@
 
 -- @begin ensure_schema_exists()
 create table if not exists teams
-( id      integer primary key
-, name    string  not null
-, creator string  not null
+( id            integer primary key
+, name          string  not null
+, creator_email string  not null
+, description   string  not null
+, created_at    string  not null
 , unique (name)
 );
 
@@ -29,8 +31,29 @@ create table if not exists votes
 );
 -- @end ensure_schema_exists()
 
--- @query add_team(name: str) ->1 i64
-insert into teams (name) values (:name) returning id;
+-- @query count_teams_by_creator(creator_email: str) ->1 i64
+select count(1) from teams where creator_email = :creator_email;
+
+-- @query add_team(
+--    name: str,
+--    creator_email: str,
+--    description: str,
+-- ) ->1 i64
+insert into
+  teams
+  ( name
+  , creator_email
+  , description
+  , created_at
+  )
+values
+  ( :name
+  , :creator_email
+  , :description
+  , strftime('%F %TZ', 'now')
+  )
+returning
+  id;
 
 -- @query add_team_member(team_id: i64, member_email: str)
 insert into
@@ -49,16 +72,20 @@ delete from
 where
   team_id = :team_id and member_email = :member_email;
 
--- @query iter_teams() ->* TeamMember
+-- @query iter_teams() ->* Team
 select
-    name as team_name       -- :str
-  , creator as team_creator -- :str
-  , member_email            -- :str
+    name          -- :str
+  , creator_email -- :str
+  , description   -- :str
+  , string_agg(member_email order by team_memberships.id, ', ') as members -- :str
 from
   teams,
   team_memberships
 where
   teams.id = team_memberships.team_id
+group by
+  name,
+  creator_email,
+  description
 order by
-  lower(name) asc,
-  team_memberships.id asc;
+  lower(name) asc;

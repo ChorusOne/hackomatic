@@ -81,9 +81,11 @@ impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
 pub fn ensure_schema_exists(tx: &mut Transaction) -> Result<()> {
     let sql = r#"
         create table if not exists teams
-        ( id      integer primary key
-        , name    string  not null
-        , creator string  not null
+        ( id            integer primary key
+        , name          string  not null
+        , creator_email string  not null
+        , description   string  not null
+        , created_at    string  not null
         , unique (name)
         );
         "#;
@@ -141,9 +143,49 @@ pub fn ensure_schema_exists(tx: &mut Transaction) -> Result<()> {
     Ok(result)
 }
 
-pub fn add_team(tx: &mut Transaction, name: &str) -> Result<i64> {
+pub fn count_teams_by_creator(tx: &mut Transaction, creator_email: &str) -> Result<i64> {
     let sql = r#"
-        insert into teams (name) values (:name) returning id;
+        select count(1) from teams where creator_email = :creator_email;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, creator_email)?;
+    let decode_row = |statement: &Statement| Ok(statement.read(0)?);
+    let result = match statement.next()? {
+        Row => decode_row(statement)?,
+        Done => panic!("Query 'count_teams_by_creator' should return exactly one row."),
+    };
+    if statement.next()? != Done {
+        panic!("Query 'count_teams_by_creator' should return exactly one row.");
+    }
+    Ok(result)
+}
+
+pub fn add_team(
+    tx: &mut Transaction,
+    name: &str,
+    creator_email: &str,
+    description: &str,
+) -> Result<i64> {
+    let sql = r#"
+        insert into
+          teams
+          ( name
+          , creator_email
+          , description
+          , created_at
+          )
+        values
+          ( :name
+          , :creator_email
+          , :description
+          , strftime('%F %TZ', 'now')
+          )
+        returning
+          id;
         "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
@@ -151,6 +193,8 @@ pub fn add_team(tx: &mut Transaction, name: &str) -> Result<i64> {
     };
     statement.reset()?;
     statement.bind(1, name)?;
+    statement.bind(2, creator_email)?;
+    statement.bind(3, description)?;
     let decode_row = |statement: &Statement| Ok(statement.read(0)?);
     let result = match statement.next()? {
         Row => decode_row(statement)?,
@@ -210,26 +254,31 @@ pub fn remove_team_member(tx: &mut Transaction, team_id: i64, member_email: &str
 }
 
 #[derive(Debug)]
-pub struct TeamMember {
-    pub team_name: String,
-    pub team_creator: String,
-    pub member_email: String,
+pub struct Team {
+    pub name: String,
+    pub creator_email: String,
+    pub description: String,
+    pub members: String,
 }
 
-pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i, 'a, TeamMember>> {
+pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i, 'a, Team>> {
     let sql = r#"
         select
-            name as team_name
-          , creator as team_creator
-          , member_email
+            name
+          , creator_email
+          , description
+          , string_agg(member_email order by team_memberships.id, ', ') as members
         from
           teams,
           team_memberships
         where
           teams.id = team_memberships.team_id
+        group by
+          name,
+          creator_email,
+          description
         order by
-          lower(name) asc,
-          team_memberships.id asc;
+          lower(name) asc;
         "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
@@ -237,10 +286,11 @@ pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i
     };
     statement.reset()?;
     let decode_row = |statement: &Statement| {
-        Ok(TeamMember {
-            team_name: statement.read(0)?,
-            team_creator: statement.read(1)?,
-            member_email: statement.read(2)?,
+        Ok(Team {
+            name: statement.read(0)?,
+            creator_email: statement.read(1)?,
+            description: statement.read(2)?,
+            members: statement.read(3)?,
         })
     };
     let result = Iter {
