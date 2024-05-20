@@ -182,7 +182,7 @@ pub fn add_team(
           ( :name
           , :creator_email
           , :description
-          , strftime('%FT%TZ', 'now')
+          , strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
           )
         returning
           id;
