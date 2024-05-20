@@ -8,6 +8,7 @@ use tiny_http::{HeaderField, Request, Server};
 use database as db;
 
 mod database;
+mod endpoints;
 
 type Response = tiny_http::Response<Cursor<Vec<u8>>>;
 
@@ -62,6 +63,10 @@ fn handle_request(
     Ok(response)
 }
 
+struct User<'a> {
+    email: &'a str,
+}
+
 fn handle_request_impl(
     config: &Config,
     tx: &mut db::Transaction,
@@ -88,16 +93,12 @@ fn handle_request_impl(
         _ => return Ok(Response::from_string("Missing authentication header.")),
     };
 
-    let body = format!("Hello {email}.");
-    let result = Response::from_string(body);
-    Ok(result)
+    let user = User { email };
+
+    endpoints::handle_index(tx, user)
 }
 
-fn serve_forever(
-    config: &Config,
-    connection: &mut db::Connection,
-    server: &Server,
-) -> ! {
+fn serve_forever(config: &Config, connection: &mut db::Connection, server: &Server) -> ! {
     loop {
         let mut request = server.recv().unwrap();
 
@@ -105,7 +106,8 @@ fn serve_forever(
         // server threads. It might happen that one of them encounters a
         // concurrency error and needs to restart the transaction, try that a
         // few times before finally gving up.
-        let mut response = Response::from_string("Database is too busy".to_string()).with_status_code(503);
+        let mut response =
+            Response::from_string("Database is too busy".to_string()).with_status_code(503);
         for _attempt in 0..6 {
             match handle_request(config, connection, &mut request) {
                 Ok(resp) => {
@@ -119,7 +121,8 @@ fn serve_forever(
                 Err(err) => {
                     // Some unrecoverable error happened.
                     println!("Error handling request: {err:?}");
-                    response = Response::from_string("Internal server error".to_string()).with_status_code(500);
+                    response = Response::from_string("Internal server error".to_string())
+                        .with_status_code(500);
                     break;
                 }
             }
@@ -142,8 +145,10 @@ fn main() {
         let server = server.clone();
         let config = config.clone();
         let guard = thread::spawn(move || {
-            let raw_connection = sqlite::open("hackomatic.sqlite").expect("Failed to open database");
-            let mut connection = init_database(&raw_connection).expect("Failed to initialize database");
+            let raw_connection =
+                sqlite::open("hackomatic.sqlite").expect("Failed to open database");
+            let mut connection =
+                init_database(&raw_connection).expect("Failed to initialize database");
             serve_forever(&config, &mut connection, &server)
         });
         guards.push(guard);
