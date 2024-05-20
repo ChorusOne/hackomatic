@@ -61,7 +61,7 @@ fn handle_request(
     Ok(response)
 }
 
-struct User<'a> {
+pub struct User<'a> {
     email: &'a str,
 }
 
