@@ -80,7 +80,10 @@ select
   , description   -- :str
   , coalesce(
       ( select
-          string_agg(member_email, ', ' order by team_memberships.id)
+          -- TODO: This is not supported on older SQLite versions,
+          -- use a separate query instead. For now we forego the ordering.
+          -- string_agg(member_email, ', ' order by team_memberships.id)
+          string_agg(member_email, ', ')
         from
           team_memberships
         where
