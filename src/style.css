@@ -1,0 +1,11 @@
+body {
+    font-family: 'Work Sans';
+    max-width: 40em;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+h1 {
+    font-weight: 900;
+    font-style: italic;
+}
