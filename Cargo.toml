@@ -5,9 +5,11 @@ edition = "2021"
 
 [dependencies]
 maud = "0.25.0"
+serde = { version = "1", features = ["derive"] }
 sqlite = "0.26.0"
 sqlite3-sys = { version = "0.13.0", default-features = false }
 tiny_http = "0.12.0"
+toml = { version = "0.8.13", features = ["parse"], default-features = false }
 
 [profile.dev]
 panic = "abort"

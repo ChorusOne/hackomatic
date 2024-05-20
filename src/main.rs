@@ -5,37 +5,35 @@ use std::thread;
 
 use tiny_http::{HeaderField, Request, Server};
 
+use config::Config;
 use database as db;
 
+mod config;
 mod database;
 mod endpoints;
 
 type Response = tiny_http::Response<Cursor<Vec<u8>>>;
 
-struct Config {
-    is_debug: bool,
-    listen: String,
-}
-
-fn parse_cli() -> Config {
-    let mut result = Config {
-        is_debug: false,
-        listen: "127.0.0.1:5591".to_string(),
-    };
-
+fn load_config() -> Config {
     let mut args = std::env::args();
 
     // Skip the program name.
     args.next();
 
-    for arg in args {
-        match arg.as_ref() {
-            "--debug" => result.is_debug = true,
-            _ => result.listen = arg,
-        }
-    }
+    let config_fname = match args.next() {
+        Some(fname) => fname,
+        None => panic!("Expected config file path as first argument."),
+    };
 
-    result
+    let config_toml = match std::fs::read_to_string(&config_fname) {
+        Ok(string) => string,
+        Err(err) => panic!("Failed to read {config_fname:?}: {err:?}"),
+    };
+
+    match toml::from_str(&config_toml) {
+        Ok(config) => config,
+        Err(err) => panic!("Failed to parse {config_fname:?}: {err:?}"),
+    }
 }
 
 fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connection> {
@@ -89,8 +87,10 @@ fn handle_request_impl(
     }
     let email = match email {
         Some(email) => email,
-        None if config.is_debug => "debug@example.com",
-        _ => return Ok(Response::from_string("Missing authentication header.")),
+        None => match config.debug.unsafe_default_email.as_ref() {
+            Some(fallback) => fallback,
+            None => return Ok(Response::from_string("Missing authentication header.")),
+        },
     };
 
     let user = User { email };
@@ -135,10 +135,10 @@ fn serve_forever(config: &Config, connection: &mut db::Connection, server: &Serv
 }
 
 fn main() {
-    let config = Arc::new(parse_cli());
+    let config = Arc::new(load_config());
 
     let n_threads = 4;
-    let server = Arc::new(Server::http(&config.listen).unwrap());
+    let server = Arc::new(Server::http(&config.server.listen).unwrap());
     let mut guards = Vec::with_capacity(n_threads);
 
     for _ in 0..n_threads {
@@ -146,7 +146,7 @@ fn main() {
         let config = config.clone();
         let guard = thread::spawn(move || {
             let raw_connection =
-                sqlite::open("hackomatic.sqlite").expect("Failed to open database");
+                sqlite::open(&config.database.path).expect("Failed to open database");
             let mut connection =
                 init_database(&raw_connection).expect("Failed to initialize database");
             serve_forever(&config, &mut connection, &server)
@@ -154,7 +154,7 @@ fn main() {
         guards.push(guard);
     }
 
-    println!("Listening on http://{}/", config.listen);
+    println!("Listening on http://{}/ ...", config.server.listen);
 
     for guard in guards.drain(..) {
         guard.join().unwrap();
