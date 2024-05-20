@@ -50,7 +50,7 @@ fn get_stylesheet() -> Markup {
     html! { (data) }
 }
 
-fn view_index(config: &Config, user: &User) -> Markup {
+fn view_index(config: &Config, user: &User, teams: &[db::Team]) -> Markup {
     html! {
         (view_html_head("Hack-o-matic"))
         body {
@@ -62,6 +62,11 @@ fn view_index(config: &Config, user: &User) -> Markup {
             }
             h2 { "Teams" }
             p { "Meet the contestants!" }
+            @for team in teams {
+                h3 { (team.name) }
+                p .description { (team.description) }
+                p .members { (team.members) }
+            }
             p {
                 details {
                     summary { "Add a new team" }
@@ -100,7 +105,8 @@ pub fn handle_index(
     tx: &mut db::Transaction,
     user: &User,
 ) -> db::Result<Response> {
-    let body = view_index(config, &user);
+    let teams = db::iter_teams(tx)?.collect::<Result<Vec<_>, _>>()?;
+    let body = view_index(config, &user, &teams);
     Ok(respond_html(body))
 }
 
@@ -127,7 +133,9 @@ fn validate_string(label: &'static str, max_len: usize, input: &str) -> Result<(
         // Control characters are not allowed (including newline).
         // Space (U+0020) is the first one that is allowed.
         if ch < '\u{20}' {
-            return Err(format!("{label} may not contain control characters (including newlines)."));
+            return Err(format!(
+                "{label} may not contain control characters (including newlines)."
+            ));
         }
 
         // Allow General Punctuation (U+2000 through U+206F).

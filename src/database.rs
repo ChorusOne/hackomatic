@@ -182,7 +182,7 @@ pub fn add_team(
           ( :name
           , :creator_email
           , :description
-          , strftime('%F %TZ', 'now')
+          , strftime('%FT%TZ', 'now')
           )
         returning
           id;
@@ -267,16 +267,18 @@ pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i
             name
           , creator_email
           , description
-          , string_agg(member_email order by team_memberships.id, ', ') as members
+          , coalesce(
+              ( select
+                  string_agg(member_email, ', ' order by team_memberships.id)
+                from
+                  team_memberships
+                where
+                  team_memberships.team_id = teams.id
+              ),
+              ''
+            ) as members
         from
-          teams,
-          team_memberships
-        where
-          teams.id = team_memberships.team_id
-        group by
-          name,
-          creator_email,
-          description
+          teams
         order by
           lower(name) asc;
         "#;
