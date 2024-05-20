@@ -50,7 +50,7 @@ fn get_stylesheet() -> Markup {
     html! { (data) }
 }
 
-fn view_index(config: &Config, user: &User, teams: &[db::Team]) -> Markup {
+fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -> Markup {
     html! {
         (view_html_head("Hack-o-matic"))
         body {
@@ -70,13 +70,21 @@ fn view_index(config: &Config, user: &User, teams: &[db::Team]) -> Markup {
             @for team in teams {
                 // We give teams an anchor so we can refer to it from a
                 // redirect and even highlight after creation using CSS.
-                h3 id=(format!("team-{}", team.id)) {
-                    a href=(format!("{}#team-{}", config.server.prefix, team.id)) {
-                        (team.name)
+                h3 id=(format!("team-{}", team.0.id)) {
+                    a href=(format!("{}#team-{}", config.server.prefix, team.0.id)) {
+                        (team.0.name)
                     }
                 }
-                p .description { (team.description) }
-                p .members { "Members: " (team.members) }
+                p .description { (team.0.description) }
+                p .members {
+                    @if team.1.is_empty() {
+                        // TODO: Should I just delete it after the last person leaves?
+                        "All members have left this team."
+                    } else {
+                        "Members: "
+                        (team.1.join(", "))
+                    }
+                }
             }
             h2 { "Vote" }
             p { "Voting has not commenced yet, check back later!" }
@@ -111,7 +119,13 @@ pub fn handle_index(
     user: &User,
 ) -> db::Result<Response> {
     let teams = db::iter_teams(tx)?.collect::<Result<Vec<_>, _>>()?;
-    let body = view_index(config, &user, &teams);
+    let mut teams_with_members = Vec::with_capacity(teams.len());
+    for team in teams {
+        let members = db::iter_team_members(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
+        teams_with_members.push((team, members));
+    }
+
+    let body = view_index(config, &user, &teams_with_members);
     Ok(respond_html(body))
 }
 

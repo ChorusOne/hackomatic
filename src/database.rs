@@ -259,7 +259,6 @@ pub struct Team {
     pub name: String,
     pub creator_email: String,
     pub description: String,
-    pub members: String,
 }
 
 pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i, 'a, Team>> {
@@ -269,19 +268,8 @@ pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i
           , name
           , creator_email
           , description
-          , coalesce(
-              ( select
-                  -- TODO: This is not supported on older SQLite versions,
-                  -- use a separate query instead. For now we forego the ordering.
-                  -- string_agg(member_email, ', ' order by team_memberships.id)
-                  string_agg(member_email, ', ')
-                from
-                  team_memberships
-                where
-                  team_memberships.team_id = teams.id
-              ),
-              ''
-            ) as members
+          -- Previously we selected the members as well here with string_agg, but that
+          -- is not supported by the version of SQLite that Ubuntu ships :'(.
         from
           teams
         order by
@@ -298,9 +286,36 @@ pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i
             name: statement.read(1)?,
             creator_email: statement.read(2)?,
             description: statement.read(3)?,
-            members: statement.read(4)?,
         })
     };
+    let result = Iter {
+        statement,
+        decode_row,
+    };
+    Ok(result)
+}
+
+pub fn iter_team_members<'i, 't, 'a>(
+    tx: &'i mut Transaction<'t, 'a>,
+    team_id: i64,
+) -> Result<Iter<'i, 'a, String>> {
+    let sql = r#"
+        select
+          member_email
+        from
+          team_memberships
+        where
+          team_id = :team_id
+        order by
+          id asc;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, team_id)?;
+    let decode_row = |statement: &Statement| Ok(statement.read(0)?);
     let result = Iter {
         statement,
         decode_row,

@@ -78,20 +78,19 @@ select
   , name          -- :str
   , creator_email -- :str
   , description   -- :str
-  , coalesce(
-      ( select
-          -- TODO: This is not supported on older SQLite versions,
-          -- use a separate query instead. For now we forego the ordering.
-          -- string_agg(member_email, ', ' order by team_memberships.id)
-          string_agg(member_email, ', ')
-        from
-          team_memberships
-        where
-          team_memberships.team_id = teams.id
-      ),
-      ''
-    ) as members -- :str
+  -- Previously we selected the members as well here with string_agg, but that
+  -- is not supported by the version of SQLite that Ubuntu ships :'(.
 from
   teams
 order by
   lower(name) asc;
+
+-- @query iter_team_members(team_id: i64) ->* str
+select
+  member_email
+from
+  team_memberships
+where
+  team_id = :team_id
+order by
+  id asc;
