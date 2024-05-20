@@ -35,6 +35,27 @@ fn parse_cli() -> Config {
     result
 }
 
+fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connection> {
+    raw_connection.execute("PRAGMA journal_mode = WAL;")?;
+    raw_connection.execute("PRAGMA foreign_keys = TRUE;")?;
+    let mut connection = db::Connection::new(&raw_connection);
+    let mut tx = connection.begin()?;
+    db::ensure_schema_exists(&mut tx)?;
+    tx.commit()?;
+    Ok(connection)
+}
+
+fn handle_request(
+    config: &Config,
+    connection: &mut db::Connection,
+    request: &mut Request,
+) -> db::Result<Response> {
+    let mut tx = connection.begin()?;
+    let response = handle_request_impl(config, &mut tx, request)?;
+    tx.commit()?;
+    Ok(response)
+}
+
 fn handle_request_impl(
     config: &Config,
     tx: &mut db::Transaction,
@@ -64,27 +85,6 @@ fn handle_request_impl(
     let body = format!("Hello {email}.");
     let result = Response::from_string(body);
     Ok(result)
-}
-
-fn handle_request(
-    config: &Config,
-    connection: &mut db::Connection,
-    request: &mut Request,
-) -> db::Result<Response> {
-    let mut tx = connection.begin()?;
-    let response = handle_request_impl(config, &mut tx, request)?;
-    tx.commit()?;
-    Ok(response)
-}
-
-fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connection> {
-    raw_connection.execute("PRAGMA journal_mode = WAL;")?;
-    raw_connection.execute("PRAGMA foreign_keys = TRUE;")?;
-    let mut connection = db::Connection::new(&raw_connection);
-    let mut tx = connection.begin()?;
-    db::ensure_schema_exists(&mut tx)?;
-    tx.commit()?;
-    Ok(connection)
 }
 
 fn main() {
