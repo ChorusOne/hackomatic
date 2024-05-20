@@ -1,5 +1,7 @@
 use std::io::Cursor;
 use std::str::FromStr;
+use std::sync::Arc;
+use std::thread;
 
 use tiny_http::{HeaderField, Request, Server};
 
@@ -36,6 +38,10 @@ fn parse_cli() -> Config {
 }
 
 fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connection> {
+    // Change the database to WAL mode if it wasn't already. Set the busy
+    // timeout to 30 milliseconds, so readers and writers can wait for each
+    // other a little bit. We also have a retry loop around the request handler.
+    raw_connection.execute("PRAGMA busy_timeout = 30;")?;
     raw_connection.execute("PRAGMA journal_mode = WAL;")?;
     raw_connection.execute("PRAGMA foreign_keys = TRUE;")?;
     let mut connection = db::Connection::new(&raw_connection);
@@ -87,26 +93,65 @@ fn handle_request_impl(
     Ok(result)
 }
 
-fn main() {
-    let config = parse_cli();
+fn serve_forever(
+    config: &Config,
+    connection: &mut db::Connection,
+    server: &Server,
+) -> ! {
+    loop {
+        let mut request = server.recv().unwrap();
 
-    let raw_connection = sqlite::open("hackomatic.sqlite").expect("Failed to open database");
-    let mut connection = init_database(&raw_connection).expect("Failed to initialize database");
-
-    let server = Server::http(&config.listen).unwrap();
-    println!("Listening on http://{}/", config.listen);
-
-    for mut request in server.incoming_requests() {
-        let response = match handle_request(&config, &mut connection, &mut request) {
-            Ok(response) => response,
-            Err(err) => {
-                println!("Error in response: {err:?}");
-                Response::from_string("Internal server error".to_string()).with_status_code(500)
+        // SQLite does not support concurrent writes, but we do spawn multiple
+        // server threads. It might happen that one of them encounters a
+        // concurrency error and needs to restart the transaction, try that a
+        // few times before finally gving up.
+        let mut response = Response::from_string("Database is too busy".to_string()).with_status_code(503);
+        for _attempt in 0..6 {
+            match handle_request(config, connection, &mut request) {
+                Ok(resp) => {
+                    response = resp;
+                    break;
+                }
+                Err(err) if err.code == Some(5) => {
+                    // The database is locked by a writer. Retry.
+                    continue;
+                }
+                Err(err) => {
+                    // Some unrecoverable error happened.
+                    println!("Error handling request: {err:?}");
+                    response = Response::from_string("Internal server error".to_string()).with_status_code(500);
+                    break;
+                }
             }
-        };
+        }
         match request.respond(response) {
-            Err(err) => println!("Error: {err:?}"),
+            Err(err) => println!("Error writing response: {err:?}"),
             Ok(()) => continue,
         }
+    }
+}
+
+fn main() {
+    let config = Arc::new(parse_cli());
+
+    let n_threads = 4;
+    let server = Arc::new(Server::http(&config.listen).unwrap());
+    let mut guards = Vec::with_capacity(n_threads);
+
+    for _ in 0..n_threads {
+        let server = server.clone();
+        let config = config.clone();
+        let guard = thread::spawn(move || {
+            let raw_connection = sqlite::open("hackomatic.sqlite").expect("Failed to open database");
+            let mut connection = init_database(&raw_connection).expect("Failed to initialize database");
+            serve_forever(&config, &mut connection, &server)
+        });
+        guards.push(guard);
+    }
+
+    println!("Listening on http://{}/", config.listen);
+
+    for guard in guards.drain(..) {
+        guard.join().unwrap();
     }
 }
