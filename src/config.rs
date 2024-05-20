@@ -6,10 +6,17 @@ use serde::{self, Deserialize};
 /// structure of the corresponding toml file a bit nicer.
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    pub app: AppConfig,
     #[serde(default)]
     pub debug: DebugConfig,
     pub server: ServerConfig,
     pub database: DatabaseConfig,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct AppConfig {
+    /// The maximum number of teams that a user can create.
+    pub max_teams_per_creator: u32,
 }
 
 #[derive(Debug, Default, Deserialize)]

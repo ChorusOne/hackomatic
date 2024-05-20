@@ -84,6 +84,12 @@ fn form_create_team(config: &Config) -> Markup {
                 "Team name: ";
                 input name="team-name";
             }
+            br;
+            label {
+                "One-line description: ";
+                input name="description";
+            }
+            br;
             input type="submit" value="Create Team";
         }
     }
@@ -139,18 +145,21 @@ pub fn handle_create_team(
     body: String,
 ) -> db::Result<Response> {
     let mut team_name = String::new();
+    let mut description = String::new();
+
     for (key, value) in form_urlencoded::parse(body.as_bytes()) {
         match key.as_ref() {
             "team-name" => team_name = value.trim().to_string(),
-            _ => return Ok(bad_request("Unexpected form field, need 'team-name'.")),
+            "description" => description = value.trim().to_string(),
+            _ => return Ok(bad_request("Unexpected form field.")),
         }
     }
 
     if team_name.is_empty() {
         return Ok(bad_request("The team name must not be empty."));
     }
-    if team_name.len() > 100 {
-        return Ok(bad_request("Team name may be no longer than 100 bytes."));
+    if team_name.len() > 65 {
+        return Ok(bad_request("The team name may be no longer than 65 bytes."));
     }
     if let Err(ch) = is_string_sane(&team_name) {
         return Ok(bad_request(format!(
@@ -158,6 +167,37 @@ pub fn handle_create_team(
             ch as u32
         )));
     }
+    if description.is_empty() {
+        return Ok(bad_request("The description must not be empty."));
+    }
+    if description.len() > 120 {
+        return Ok(bad_request(
+            "The description may be no longer than 120 bytes.",
+        ));
+    }
+    if let Err(ch) = is_string_sane(&description) {
+        return Ok(bad_request(format!(
+            "Invalid character in description, '{ch}' (U+{:04X}) is not allowed.",
+            ch as u32
+        )));
+    }
 
-    Ok(respond_html(html! { "TODO" }))
+    let n_teams_by_user = db::count_teams_by_creator(tx, &user.email)?;
+    if n_teams_by_user > config.app.max_teams_per_creator as i64 {
+        return Ok(bad_request(format!(
+            "You already created {n_teams_by_user} teams, chill out!"
+        )));
+    }
+
+    let team_id = match db::add_team(tx, &team_name, &user.email, &description) {
+        Ok(id) => id,
+        Err(err) if err.code == Some(19) => {
+            return Ok(bad_request("A team with that name already exists."))
+        }
+        Err(err) => return Err(err),
+    };
+
+    Ok(respond_html(html! {
+        "Created team with id" (team_id)
+    }))
 }

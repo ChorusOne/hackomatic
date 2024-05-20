@@ -5,5 +5,8 @@ prefix = "/hack"
 [database]
 path = "hackomatic.sqlite3"
 
+[app]
+max_teams_per_creator = 3
+
 [debug]
 unsafe_default_email = "admin@example.com"
