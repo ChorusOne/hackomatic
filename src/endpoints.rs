@@ -196,6 +196,9 @@ pub fn handle_create_team(
         Err(err) => return Err(err),
     };
 
+    // The user who creates the team is initially a member of it.
+    db::add_team_member(tx, team_id, &user.email)?;
+
     Ok(respond_html(html! {
         "Created team with id" (team_id)
     }))
