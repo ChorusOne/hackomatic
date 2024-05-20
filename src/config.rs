@@ -6,12 +6,13 @@ use serde::{self, Deserialize};
 /// structure of the corresponding toml file a bit nicer.
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    #[serde(default)]
     pub debug: DebugConfig,
     pub server: ServerConfig,
     pub database: DatabaseConfig,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct DebugConfig {
     /// Use this as fallback email when the `X-Email` header is not set.
     ///
