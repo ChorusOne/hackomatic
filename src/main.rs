@@ -77,17 +77,21 @@ fn handle_request(
     Ok(response)
 }
 
+fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connection> {
+    raw_connection.execute("PRAGMA journal_mode = WAL;")?;
+    raw_connection.execute("PRAGMA foreign_keys = TRUE;")?;
+    let mut connection = db::Connection::new(&raw_connection);
+    let mut tx = connection.begin()?;
+    db::ensure_schema_exists(&mut tx)?;
+    tx.commit()?;
+    Ok(connection)
+}
+
 fn main() {
     let config = parse_cli();
 
-    let raw_connection = sqlite::open("hackomatic.sqlite").expect("Failed to open database.");
-    raw_connection
-        .execute("PRAGMA journal_mode = WAL;")
-        .unwrap();
-    raw_connection
-        .execute("PRAGMA foreign_keys = TRUE;")
-        .unwrap();
-    let mut connection = db::Connection::new(&raw_connection);
+    let raw_connection = sqlite::open("hackomatic.sqlite").expect("Failed to open database");
+    let mut connection = init_database(&raw_connection).expect("Failed to initialize database");
 
     let server = Server::http(&config.listen).unwrap();
     println!("Listening on http://{}/", config.listen);

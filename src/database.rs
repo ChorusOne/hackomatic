@@ -99,7 +99,7 @@ pub fn ensure_schema_exists(tx: &mut Transaction) -> Result<()> {
     let sql = r#"
         create table if not exists team_memberships
         ( id           integer primary key
-        , team_id      integer not null references teams (id),
+        , team_id      integer not null references teams (id)
         , member_email string  not null
           -- Every person can be in a given team at most once. They can be in multiple
           -- teams, and the team can have multiple members, this is only about
@@ -121,7 +121,7 @@ pub fn ensure_schema_exists(tx: &mut Transaction) -> Result<()> {
         create table if not exists votes
         ( id          integer primary key
         , voter_email string  not null
-        , team_id     integer not null references teams (id),
+        , team_id     integer not null references teams (id)
         , points      integer not null
           -- Every voter can vote at most once on a team. Without this, you could
           -- sidestep the quadratic voting property.
