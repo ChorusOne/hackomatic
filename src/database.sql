@@ -2,8 +2,9 @@
 
 -- @begin ensure_schema_exists()
 create table if not exists teams
-( id   integer primary key
-, name string  not null
+( id      integer primary key
+, name    string  not null
+, creator string  not null
 , unique (name)
 );
 
@@ -50,13 +51,14 @@ where
 
 -- @query iter_teams() ->* TeamMember
 select
-    name as team -- :str
-  , member_email -- :str
+    name as team_name       -- :str
+  , creator as team_creator -- :str
+  , member_email            -- :str
 from
   teams,
   team_memberships
 where
   teams.id = team_memberships.team_id
 order by
-  name asc,
-  member_email asc;
+  lower(name) asc,
+  team_memberships.id asc;

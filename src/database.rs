@@ -81,8 +81,9 @@ impl<'i, 'a, T> Iterator for Iter<'i, 'a, T> {
 pub fn ensure_schema_exists(tx: &mut Transaction) -> Result<()> {
     let sql = r#"
         create table if not exists teams
-        ( id   integer primary key
-        , name string  not null
+        ( id      integer primary key
+        , name    string  not null
+        , creator string  not null
         , unique (name)
         );
         "#;
@@ -210,14 +211,16 @@ pub fn remove_team_member(tx: &mut Transaction, team_id: i64, member_email: &str
 
 #[derive(Debug)]
 pub struct TeamMember {
-    pub team: String,
+    pub team_name: String,
+    pub team_creator: String,
     pub member_email: String,
 }
 
 pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i, 'a, TeamMember>> {
     let sql = r#"
         select
-            name as team
+            name as team_name
+          , creator as team_creator
           , member_email
         from
           teams,
@@ -225,8 +228,8 @@ pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i
         where
           teams.id = team_memberships.team_id
         order by
-          name asc,
-          member_email asc;
+          lower(name) asc,
+          team_memberships.id asc;
         "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
@@ -235,8 +238,9 @@ pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i
     statement.reset()?;
     let decode_row = |statement: &Statement| {
         Ok(TeamMember {
-            team: statement.read(0)?,
-            member_email: statement.read(1)?,
+            team_name: statement.read(0)?,
+            team_creator: statement.read(1)?,
+            member_email: statement.read(2)?,
         })
     };
     let result = Iter {
