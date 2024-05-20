@@ -3,6 +3,8 @@ use std::str::FromStr;
 
 use tiny_http::{HeaderField, Request, Server};
 
+mod database;
+
 type Response = tiny_http::Response<Cursor<Vec<u8>>>;
 
 struct Config {
