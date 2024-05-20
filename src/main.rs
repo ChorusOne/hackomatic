@@ -43,7 +43,7 @@ fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connecti
     raw_connection.execute("PRAGMA busy_timeout = 30;")?;
     raw_connection.execute("PRAGMA journal_mode = WAL;")?;
     raw_connection.execute("PRAGMA foreign_keys = TRUE;")?;
-    let mut connection = db::Connection::new(&raw_connection);
+    let mut connection = db::Connection::new(raw_connection);
     let mut tx = connection.begin()?;
     db::ensure_schema_exists(&mut tx)?;
     tx.commit()?;
