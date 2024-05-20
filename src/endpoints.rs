@@ -209,7 +209,7 @@ pub fn handle_create_team(
 
     let team_id = match db::add_team(tx, &team_name, &user.email, &description) {
         Ok(id) => id,
-        Err(err) if err.code == Some(19) => {
+        Err(err) if err.message.as_deref().unwrap_or("").contains("UNIQUE constraint") => {
             return Ok(bad_request("A team with that name already exists."))
         }
         Err(err) => return Err(err),
