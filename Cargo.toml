@@ -1,0 +1,10 @@
+[package]
+name = "hackomatic"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+maud = "0.25.0"
+sqlite = "0.26.0"
+sqlite3-sys = { version = "0.13.0", default-features = false }
+tiny_http = "0.12.0"
