@@ -200,7 +200,11 @@ pub fn handle_create_team(
     // The user who creates the team is initially a member of it.
     db::add_team_member(tx, team_id, &user.email)?;
 
-    Ok(respond_html(html! {
-        "Created team with id" (team_id)
-    }))
+    let new_url = format!("{}#team-{}", config.server.prefix, team_id);
+
+    let result = Response::from_string("")
+        .with_status_code(303)
+        .with_header(Header::from_bytes(&b"Location"[..], new_url.as_bytes()).unwrap());
+
+    Ok(result)
 }
