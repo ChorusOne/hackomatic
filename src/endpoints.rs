@@ -57,10 +57,23 @@ fn view_index(user: User) -> Markup {
             }
             h2 { "Teams" }
             p { "Meet the contestants!" }
+            (view_create_team())
             h2 { "Vote" }
             p { "Voting has not commenced yet, check back later!" }
             h2 { "Winners" }
             p { "The winners will be announced here after the vote closes." }
+        }
+    }
+}
+
+fn view_create_team() -> Markup {
+    html! {
+        form action="hack/create-team" method="post" {
+            label {
+                "Team name: ";
+                input name="team-name";
+            }
+            input type="submit" value="Create Team";
         }
     }
 }
