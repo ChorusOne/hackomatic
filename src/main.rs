@@ -3,6 +3,8 @@ use std::str::FromStr;
 
 use tiny_http::{HeaderField, Request, Server};
 
+use database as db;
+
 mod database;
 
 type Response = tiny_http::Response<Cursor<Vec<u8>>>;
@@ -33,7 +35,11 @@ fn parse_cli() -> Config {
     result
 }
 
-fn handle_request(config: &Config, request: &mut Request) -> Response {
+fn handle_request_impl(
+    config: &Config,
+    tx: &mut db::Transaction,
+    request: &mut Request,
+) -> db::Result<Response> {
     println!(
         "received request! method: {:?}, url: {:?}, headers: {:?}",
         request.method(),
@@ -52,21 +58,48 @@ fn handle_request(config: &Config, request: &mut Request) -> Response {
     let email = match email {
         Some(email) => email,
         None if config.is_debug => "debug@example.com",
-        _ => return Response::from_string("Missing authentication header."),
+        _ => return Ok(Response::from_string("Missing authentication header.")),
     };
 
     let body = format!("Hello {email}.");
-    Response::from_string(body)
+    let result = Response::from_string(body);
+    Ok(result)
+}
+
+fn handle_request(
+    config: &Config,
+    connection: &mut db::Connection,
+    request: &mut Request,
+) -> db::Result<Response> {
+    let mut tx = connection.begin()?;
+    let response = handle_request_impl(config, &mut tx, request)?;
+    tx.commit()?;
+    Ok(response)
 }
 
 fn main() {
     let config = parse_cli();
 
+    let raw_connection = sqlite::open("hackomatic.sqlite").expect("Failed to open database.");
+    raw_connection
+        .execute("PRAGMA journal_mode = WAL;")
+        .unwrap();
+    raw_connection
+        .execute("PRAGMA foreign_keys = TRUE;")
+        .unwrap();
+    let mut connection = db::Connection::new(&raw_connection);
+
     let server = Server::http(&config.listen).unwrap();
     println!("Listening on http://{}/", config.listen);
 
     for mut request in server.incoming_requests() {
-        let response = handle_request(&config, &mut request);
+        let response = match handle_request(&config, &mut connection, &mut request) {
+            Ok(response) => response,
+            Err(err) => {
+                println!("Error in response: {err:?}");
+                Response::from_string("Internal server error".to_string()).with_status_code(500)
+            }
+        };
         match request.respond(response) {
             Err(err) => println!("Error: {err:?}"),
             Ok(()) => continue,
