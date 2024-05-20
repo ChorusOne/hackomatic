@@ -6,8 +6,9 @@ use crate::database as db;
 use crate::{Response, User};
 
 fn respond_html(markup: Markup) -> Response {
-    Response::from_string(markup.into_string())
-        .with_header(Header::from_bytes(b"Content-Type", b"text/html; charset=utf-8").unwrap())
+    Response::from_string(markup.into_string()).with_header(
+        Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..]).unwrap(),
+    )
 }
 
 /// Render the standard header that is the same across all pages.
