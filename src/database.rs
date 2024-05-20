@@ -255,6 +255,7 @@ pub fn remove_team_member(tx: &mut Transaction, team_id: i64, member_email: &str
 
 #[derive(Debug)]
 pub struct Team {
+    pub id: i64,
     pub name: String,
     pub creator_email: String,
     pub description: String,
@@ -264,7 +265,8 @@ pub struct Team {
 pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i, 'a, Team>> {
     let sql = r#"
         select
-            name
+            id
+          , name
           , creator_email
           , description
           , coalesce(
@@ -289,10 +291,11 @@ pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i
     statement.reset()?;
     let decode_row = |statement: &Statement| {
         Ok(Team {
-            name: statement.read(0)?,
-            creator_email: statement.read(1)?,
-            description: statement.read(2)?,
-            members: statement.read(3)?,
+            id: statement.read(0)?,
+            name: statement.read(1)?,
+            creator_email: statement.read(2)?,
+            description: statement.read(3)?,
+            members: statement.read(4)?,
         })
     };
     let result = Iter {

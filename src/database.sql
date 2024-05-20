@@ -74,7 +74,8 @@ where
 
 -- @query iter_teams() ->* Team
 select
-    name          -- :str
+    id            -- :i64
+  , name          -- :str
   , creator_email -- :str
   , description   -- :str
   , coalesce(

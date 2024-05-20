@@ -61,17 +61,18 @@ fn view_index(config: &Config, user: &User, teams: &[db::Team]) -> Markup {
                 "Welcome to the hackaton support system, " (user.email) "."
             }
             h2 { "Teams" }
-            p { "Meet the contestants!" }
-            @for team in teams {
-                h3 { (team.name) }
-                p .description { (team.description) }
-                p .members { (team.members) }
-            }
             p {
                 details {
                     summary { "Add a new team" }
                     (form_create_team(config))
                 }
+            }
+            @for team in teams {
+                // We give teams an anchor so we can refer to it from a
+                // redirect and even highlight after creation using CSS.
+                h3 id=(format!("team-{}", team.id)) { (team.name) }
+                p .description { (team.description) }
+                p .members { "Members: " (team.members) }
             }
             h2 { "Vote" }
             p { "Voting has not commenced yet, check back later!" }
