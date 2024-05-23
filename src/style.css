@@ -13,6 +13,15 @@ html {
     background-color: var(--bg);
 }
 
+@media (prefers-color-scheme: dark) {
+    html {
+        --bg: #111;
+        --fg: #ffc013;
+        --dp: #335d9e;
+
+    }
+}
+
 body {
     font-family: 'Work Sans';
     line-height: 1.6em;
@@ -65,29 +74,34 @@ input, button {
     padding-left: 0.3rem;
     padding-right: 0.3rem;
     font-family: inherit;
+    background-color: inherit;
+    color: var(--fg);
+    border: 2pt solid var(--fg);
+    border-radius: 3pt;
+}
+
+button {
+    border-bottom-width: 3pt;
+    border-right-width: 3pt;
+}
+
+button:active {
+    border-bottom-width: 2pt;
+    border-right-width: 2pt;
+    border-top-width: 3pt;
+    border-left-width: 3pt;
 }
 
 label {
     display: block;
     position: relative;
-    height: 2rem;
+    height: 2.2rem;
 }
 
 label input {
     position: absolute;
     left: 12rem;
     width: calc(100% - 12rem);
-}
-
-button {
-    background-color: inherit;
-    border: 2pt solid var(--fg);
-    border-radius: 3pt;
-}
-
-button:active {
-    background-color: var(--fg);
-    color: var(--dp);
 }
 
 h3 {
