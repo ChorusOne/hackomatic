@@ -21,6 +21,12 @@ fn internal_error<R: Into<String>>(reason: R) -> Response {
     Response::from_string(reason.into()).with_status_code(500)
 }
 
+fn redirect_see_other<R: AsRef<[u8]>>(location: R) -> Response {
+    Response::from_string("")
+        .with_status_code(303)
+        .with_header(Header::from_bytes(&b"Location"[..], location.as_ref()).unwrap())
+}
+
 /// Render the standard header that is the same across all pages.
 fn view_html_head(page_title: &str) -> Markup {
     html! {
@@ -253,12 +259,27 @@ pub fn handle_create_team(
     db::add_team_member(tx, team_id, &user.email)?;
 
     let new_url = format!("{}#team-{}", config.server.prefix, team_id);
+    Ok(redirect_see_other(new_url.as_bytes()))
+}
 
-    let result = Response::from_string("")
-        .with_status_code(303)
-        .with_header(Header::from_bytes(&b"Location"[..], new_url.as_bytes()).unwrap());
+fn get_body_team_id(body: String) -> Result<i64, Response> {
+    let mut team_id = 0_i64;
 
-    Ok(result)
+    for (key, value) in form_urlencoded::parse(body.as_bytes()) {
+        match key.as_ref() {
+            "team-id" => match i64::from_str(value.as_ref()) {
+                Ok(id) => team_id = id,
+                Err(..) => return Err(bad_request("Invalid team id.")),
+            },
+            _ => return Err(bad_request("Unexpected form field.")),
+        }
+    }
+
+    if team_id == 0 {
+        Err(bad_request("Need a team id."))
+    } else {
+        Ok(team_id)
+    }
 }
 
 pub fn handle_delete_team(
@@ -267,21 +288,10 @@ pub fn handle_delete_team(
     user: &User,
     body: String,
 ) -> db::Result<Response> {
-    let mut team_id = 0_i64;
-
-    for (key, value) in form_urlencoded::parse(body.as_bytes()) {
-        match key.as_ref() {
-            "team-id" => match i64::from_str(value.as_ref()) {
-                Ok(id) => team_id = id,
-                Err(..) => return Ok(bad_request("Invalid team id.")),
-            },
-            _ => return Ok(bad_request("Unexpected form field.")),
-        }
-    }
-
-    if team_id == 0 {
-        return Ok(bad_request("Need a team id."));
-    }
+    let team_id = match get_body_team_id(body) {
+        Ok(id) => id,
+        Err(err_response) => return Ok(err_response),
+    };
 
     // Remove ourselves from the team first.
     db::remove_team_member(tx, team_id, &user.email)?;
@@ -296,9 +306,5 @@ pub fn handle_delete_team(
 
     db::delete_team(tx, team_id)?;
 
-    let result = Response::from_string("").with_status_code(303).with_header(
-        Header::from_bytes(&b"Location"[..], config.server.prefix.as_bytes()).unwrap(),
-    );
-
-    Ok(result)
+    Ok(redirect_see_other(config.server.prefix.as_bytes()))
 }
