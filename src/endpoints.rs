@@ -17,7 +17,7 @@ fn respond_error<R: Into<String>>(reason: R) -> Response {
     let page = html! {
         (view_html_head("Hack-o-matic Error"))
         body {
-            h1 { "D'oh!" }
+            h1 { "D’oh!" }
             p { (reason.into()) }
         }
     };
