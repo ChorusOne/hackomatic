@@ -75,7 +75,7 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
             p {
                 "Welcome to the hackaton support system, " (user.email) "."
             }
-            h2 { "Status" }
+            h2 { "Progress" }
             p { "The hackathon proceeds in four phases:" }
             ol {
                 li {
@@ -136,12 +136,10 @@ fn form_create_team(config: &Config) -> Markup {
                 "Team name: ";
                 input name="team-name";
             }
-            br;
             label {
                 "One-line description: ";
                 input name="description";
             }
-            br;
             button type="submit" { "Create Team" }
         }
     }

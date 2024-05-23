@@ -43,6 +43,29 @@ ol li strong {
     width: 6.5em;
 }
 
+details summary {
+    margin-bottom: 1rem;
+}
+
+input, button {
+    padding: 0.3rem;
+    padding-left: 0.3rem;
+    padding-right: 0.3rem;
+    font-family: inherit;
+}
+
+label {
+    display: block;
+    position: relative;
+    height: 2rem;
+}
+
+label input {
+    position: absolute;
+    left: 12rem;
+    width: calc(100% - 12rem);
+}
+
 h3 {
     margin-top: 2rem;
     font-size: 1rem;
