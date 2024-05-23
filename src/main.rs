@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use tiny_http::{HeaderField, Request, Server};
+use tiny_http::{HeaderField, Method, Request, Server};
 
 use config::Config;
 use database as db;
@@ -57,7 +57,17 @@ fn handle_request(
 ) -> db::Result<Response> {
     let mut tx = connection.begin()?;
     let response = handle_request_impl(config, &mut tx, request)?;
-    tx.commit()?;
+
+    // Commit on success responses (we assume redirects to be success as well,
+    // for example for use after submitting a form). If we encounter any error,
+    // roll back. We do this here because handlers cannot call `tx.rollback()`,
+    // because it consumes the transaction.
+    if response.status_code().0 < 400 {
+        tx.commit()?;
+    } else {
+        tx.rollback()?;
+    }
+
     Ok(response)
 }
 
@@ -99,21 +109,28 @@ fn handle_request_impl(
 
     let not_found = Response::from_string("Not found.").with_status_code(404);
     let url_inner = match request.url().strip_prefix(&config.server.prefix) {
-        Some(url) => url,
+        Some(url) => url.to_string(),
         None => return Ok(not_found),
     };
 
-    match url_inner {
-        "" | "/" => endpoints::handle_index(config, tx, &user),
-        "/create-team" => {
-            // Read the body, ignore any IO errors there. In most cases this is
-            // probably fine and we'll fail elsewhere, but it might happen that
-            // we read a truncated body and fail half-way. TODO: Handle properly.
-            let mut body = String::new();
-            let _ = request.as_reader().read_to_string(&mut body);
-            endpoints::handle_create_team(config, tx, &user, body)
+    if request.method() == &Method::Post {
+        // Read the body, ignore any IO errors there. In most cases this is
+        // probably fine and we'll fail elsewhere, but it might happen that
+        // we read a truncated body and fail half-way. TODO: Handle properly.
+        let mut body = String::new();
+        let _ = request.as_reader().read_to_string(&mut body);
+
+        match url_inner.as_ref() {
+            "/create-team" => endpoints::handle_create_team(config, tx, &user, body),
+            "/delete-team" => endpoints::handle_delete_team(config, tx, &user, body),
+            _ => Ok(not_found),
         }
-        _ => Ok(not_found),
+    } else {
+        // Assume everything else is a GET request.
+        match url_inner.as_ref() {
+            "" | "/" => endpoints::handle_index(config, tx, &user),
+            _ => Ok(not_found),
+        }
     }
 }
 

@@ -206,6 +206,23 @@ pub fn add_team(
     Ok(result)
 }
 
+pub fn delete_team(tx: &mut Transaction, team_id: i64) -> Result<()> {
+    let sql = r#"
+        delete from teams where id = :team_id;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, team_id)?;
+    let result = match statement.next()? {
+        Row => panic!("Query 'delete_team' unexpectedly returned a row."),
+        Done => (),
+    };
+    Ok(result)
+}
+
 pub fn add_team_member(tx: &mut Transaction, team_id: i64, member_email: &str) -> Result<()> {
     let sql = r#"
         insert into

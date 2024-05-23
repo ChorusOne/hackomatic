@@ -55,6 +55,9 @@ values
 returning
   id;
 
+-- @query delete_team(team_id: i64)
+delete from teams where id = :team_id;
+
 -- @query add_team_member(team_id: i64, member_email: str)
 insert into
   team_memberships

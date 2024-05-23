@@ -1,5 +1,6 @@
-use maud::{html, Markup, DOCTYPE};
+use std::str::FromStr;
 
+use maud::{html, Markup, DOCTYPE};
 use tiny_http::Header;
 
 use crate::config::Config;
@@ -14,6 +15,10 @@ fn respond_html(markup: Markup) -> Response {
 
 fn bad_request<R: Into<String>>(reason: R) -> Response {
     Response::from_string(reason.into()).with_status_code(400)
+}
+
+fn internal_error<R: Into<String>>(reason: R) -> Response {
+    Response::from_string(reason.into()).with_status_code(500)
 }
 
 /// Render the standard header that is the same across all pages.
@@ -114,12 +119,7 @@ fn form_create_team(config: &Config) -> Markup {
     }
 }
 
-fn form_team_actions(
-    config: &Config,
-    user: &User,
-    team_id: i64,
-    members: &[String],
-) -> Markup {
+fn form_team_actions(config: &Config, user: &User, team_id: i64, members: &[String]) -> Markup {
     // Linear search, I know I know. Teams are small anyway.
     let is_member = members.contains(&user.email);
     let is_singleton = members.len() == 1;
@@ -237,7 +237,13 @@ pub fn handle_create_team(
 
     let team_id = match db::add_team(tx, &team_name, &user.email, &description) {
         Ok(id) => id,
-        Err(err) if err.message.as_deref().unwrap_or("").contains("UNIQUE constraint") => {
+        Err(err)
+            if err
+                .message
+                .as_deref()
+                .unwrap_or("")
+                .contains("UNIQUE constraint") =>
+        {
             return Ok(bad_request("A team with that name already exists."))
         }
         Err(err) => return Err(err),
@@ -251,6 +257,48 @@ pub fn handle_create_team(
     let result = Response::from_string("")
         .with_status_code(303)
         .with_header(Header::from_bytes(&b"Location"[..], new_url.as_bytes()).unwrap());
+
+    Ok(result)
+}
+
+pub fn handle_delete_team(
+    config: &Config,
+    tx: &mut db::Transaction,
+    user: &User,
+    body: String,
+) -> db::Result<Response> {
+    let mut team_id = 0_i64;
+
+    for (key, value) in form_urlencoded::parse(body.as_bytes()) {
+        match key.as_ref() {
+            "team-id" => match i64::from_str(value.as_ref()) {
+                Ok(id) => team_id = id,
+                Err(..) => return Ok(bad_request("Invalid team id.")),
+            },
+            _ => return Ok(bad_request("Unexpected form field.")),
+        }
+    }
+
+    if team_id == 0 {
+        return Ok(bad_request("Need a team id."));
+    }
+
+    // Remove ourselves from the team first.
+    db::remove_team_member(tx, team_id, &user.email)?;
+
+    // Confirm that the team is now empty.
+    for _member in db::iter_team_members(tx, team_id)? {
+        // Returning an error status code will also roll back the transaction.
+        return Ok(internal_error(
+            "The team is not empty, we can't delete it yet.",
+        ));
+    }
+
+    db::delete_team(tx, team_id)?;
+
+    let result = Response::from_string("").with_status_code(303).with_header(
+        Header::from_bytes(&b"Location"[..], config.server.prefix.as_bytes()).unwrap(),
+    );
 
     Ok(result)
 }
