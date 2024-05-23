@@ -70,6 +70,13 @@ fn get_stylesheet() -> Markup {
     html! { (data) }
 }
 
+fn view_email<'a>(config: &Config, email: &'a str) -> &'a str {
+    match email.strip_suffix(&config.app.email_suffix) {
+        Some(stripped) => stripped,
+        None => email,
+    }
+}
+
 fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -> Markup {
     html! {
         (view_html_head("Hack-o-matic"))
@@ -119,7 +126,10 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
                     p .description { (team.0.description) }
                     p .members {
                         strong { "Members: " }
-                        (team.1.join(", "))
+                        @for (i, member) in team.1.iter().enumerate() {
+                            @if i > 0 { ", " }
+                            (view_email(config, member))
+                        }
                     }
                     (form_team_actions(config, user, team.0.id, &team.1))
                 }
@@ -175,14 +185,7 @@ pub fn handle_index(
     let teams = db::iter_teams(tx)?.collect::<Result<Vec<_>, _>>()?;
     let mut teams_with_members = Vec::with_capacity(teams.len());
     for team in teams {
-        let mut members = db::iter_team_members(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
-
-        // Remove the shared email suffix to fit more data on the screen.
-        for member in members.iter_mut() {
-            if member.ends_with(&config.app.email_suffix) {
-                member.truncate(member.len() - config.app.email_suffix.len());
-            }
-        }
+        let members = db::iter_team_members(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
         teams_with_members.push((team, members));
     }
 
