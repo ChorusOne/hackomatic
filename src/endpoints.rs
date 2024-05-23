@@ -17,6 +17,10 @@ fn bad_request<R: Into<String>>(reason: R) -> Response {
     Response::from_string(reason.into()).with_status_code(400)
 }
 
+fn conflict<R: Into<String>>(reason: R) -> Response {
+    Response::from_string(reason.into()).with_status_code(409)
+}
+
 fn internal_error<R: Into<String>>(reason: R) -> Response {
     Response::from_string(reason.into()).with_status_code(500)
 }
@@ -299,7 +303,7 @@ pub fn handle_delete_team(
     // Confirm that the team is now empty.
     for _member in db::iter_team_members(tx, team_id)? {
         // Returning an error status code will also roll back the transaction.
-        return Ok(internal_error(
+        return Ok(conflict(
             "The team is not empty, we can't delete it yet.",
         ));
     }
@@ -326,8 +330,8 @@ pub fn handle_leave_team(
     // Confirm that the team is not empty. If it is, we should have deleted it.
     // We could do it automatically but let's be safe and not delete anything
     // unless a delete is explicitly what was requested.
-    if !db::iter_team_members(tx, team_id)?.next().is_some() {
-        return Ok(bad_request(
+    if db::iter_team_members(tx, team_id)?.next().is_none() {
+        return Ok(conflict(
             "It looks like all your team members have abandoned you.\n\
             You are the last member, leaving the team would leave it empty.\n\
             If you really want to do that to the team, then go back, \n\
@@ -349,6 +353,15 @@ pub fn handle_join_team(
         Ok(id) => id,
         Err(err_response) => return Ok(err_response),
     };
+
+    // Confirm that the team exists before we join it. For it to exist, it must
+    // have members.
+    if db::iter_team_members(tx, team_id)?.next().is_none() {
+        return Ok(conflict(
+            "It looks like all team members have left this team before you joined.\n\
+            It no longer exists, but if you like you can go back and create a new team."
+        ))
+    }
 
     db::add_team_member(tx, team_id, &user.email)?;
 
