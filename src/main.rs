@@ -80,8 +80,6 @@ fn handle_request_impl(
     tx: &mut db::Transaction,
     request: &mut Request,
 ) -> db::Result<Response> {
-    println!("{:?} {:?}", request.method(), request.url());
-
     // Figure out who the user is. In debug mode we fall back to a default.
     let header_x_email = HeaderField::from_str("X-Email").unwrap();
     let mut email = None;
@@ -104,6 +102,8 @@ fn handle_request_impl(
             }
         },
     };
+
+    println!("{:4?} {} {}", request.method(), request.url(), email);
 
     let user = User { email };
 
