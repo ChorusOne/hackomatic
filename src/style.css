@@ -6,7 +6,7 @@
 html {
     font-size: 18px;
 
-    --bg: #ffc013;
+    --bg: #cdffac;
     --fg: #111;
     --dp: #fff;
 
@@ -16,9 +16,8 @@ html {
 @media (prefers-color-scheme: dark) {
     html {
         --bg: #111;
-        --fg: #ffc013;
-        --dp: #335d9e;
-
+        --fg: #cdffac;
+        --dp: #000
     }
 }
 
@@ -93,7 +92,7 @@ ol li {
 
 ol li strong {
     display: inline-block;
-    width: 6.5em;
+    width: 6.2em;
 }
 
 form {
