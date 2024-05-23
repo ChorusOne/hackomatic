@@ -85,6 +85,7 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
                         (team.1.join(", "))
                     }
                 }
+                (form_team_actions(config, user, team.0.id, &team.1))
             }
             h2 { "Vote" }
             p { "Voting has not commenced yet, check back later!" }
@@ -108,7 +109,34 @@ fn form_create_team(config: &Config) -> Markup {
                 input name="description";
             }
             br;
-            input type="submit" value="Create Team";
+            button type="submit" { "Create Team" }
+        }
+    }
+}
+
+fn form_team_actions(
+    config: &Config,
+    user: &User,
+    team_id: i64,
+    members: &[String],
+) -> Markup {
+    // Linear search, I know I know. Teams are small anyway.
+    let is_member = members.contains(&user.email);
+    let is_singleton = members.len() == 1;
+
+    let (slug, label) = if is_member && is_singleton {
+        ("delete-team", "Delete Team")
+    } else if is_member {
+        ("leave-team", "Leave Team")
+    } else {
+        ("join-team", "Join Team")
+    };
+
+    let submit_url = format!("{}/{}", config.server.prefix, slug);
+    html! {
+        form action=(submit_url) method="post" {
+            input type="hidden" name="team-id" value=(team_id);
+            button type="submit" { (label) }
         }
     }
 }
