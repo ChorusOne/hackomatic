@@ -44,6 +44,24 @@ impl Phase {
             Phase::Revelation { reveal_top3: true } => "revelation-2",
         }
     }
+
+    fn prev(&self) -> Phase {
+        match self {
+            Phase::Registration => Phase::Registration,
+            Phase::Presentation => Phase::Registration,
+            Phase::Evaluation => Phase::Presentation,
+            Phase::Revelation { .. } => Phase::Evaluation,
+        }
+    }
+
+    fn next(&self) -> Phase {
+        match self {
+            Phase::Registration => Phase::Presentation,
+            Phase::Presentation => Phase::Evaluation,
+            Phase::Evaluation => Phase::Revelation { reveal_top3: false },
+            _ => Phase::Revelation { reveal_top3: true },
+        }
+    }
 }
 
 fn load_phase(tx: &mut db::Transaction) -> db::Result<Phase> {
