@@ -136,8 +136,9 @@ fn handle_request_impl(
     }
 }
 
-fn serve_forever(config: &Config, connection: &mut db::Connection, server: &Server) -> ! {
+fn serve_until_error(config: &Config, connection: &mut db::Connection, server: &Server) {
     loop {
+        let mut fatal_error = None;
         let mut request = server.recv().unwrap();
 
         // SQLite does not support concurrent writes, but we do spawn multiple
@@ -161,13 +162,17 @@ fn serve_forever(config: &Config, connection: &mut db::Connection, server: &Serv
                     println!("Error handling request: {err:?}");
                     response = Response::from_string("Internal server error".to_string())
                         .with_status_code(500);
+                    fatal_error = Some(err);
                     break;
                 }
             }
         }
-        match request.respond(response) {
-            Err(err) => println!("Error writing response: {err:?}"),
-            Ok(()) => continue,
+        if let Err(err) = request.respond(response) {
+            println!("Error writing response: {err:?}");
+        }
+        if let Some(err) = fatal_error {
+            println!("Restarting server loop due to error: {err:?}");
+            return;
         }
     }
 }
@@ -175,7 +180,7 @@ fn serve_forever(config: &Config, connection: &mut db::Connection, server: &Serv
 fn main() {
     let config = Arc::new(load_config());
 
-    let n_threads = 4;
+    let n_threads = 1;
     let server = Arc::new(Server::http(&config.server.listen).unwrap());
     let mut guards = Vec::with_capacity(n_threads);
     let init_mutex = Arc::new(Mutex::new(()));
@@ -186,23 +191,27 @@ fn main() {
         let init_mutex = init_mutex.clone();
 
         let guard = thread::spawn(move || {
-            // The database connections need to be opened sequentially, because
-            // SQLite supports only a single writer at a time. If we let all
-            // threads run, then we encounter a "database is locked" error
-            // (error code 5). We do need to open the connection on the server
-            // threads though, we can't do it on the main thread because the
-            // `db::Connection` takes a `&sqlite::Connection`, and the latter
-            // is not `Sync`. So we have to initialize here. Setting the busy
-            // timeout helps but is fragile: on an underpowered VM the timeout
-            // may be insufficient. So mutexes it is.
-            let db_lock = init_mutex.lock().unwrap();
-            let raw_connection =
-                sqlite::open(&config.database.path).expect("Failed to open database");
-            let mut connection =
-                init_database(&raw_connection).expect("Failed to initialize database.");
-            std::mem::drop(db_lock);
+            loop {
+                // The database connections need to be opened sequentially, because
+                // SQLite supports only a single writer at a time. If we let all
+                // threads run, then we encounter a "database is locked" error
+                // (error code 5). We do need to open the connection on the server
+                // threads though, we can't do it on the main thread because the
+                // `db::Connection` takes a `&sqlite::Connection`, and the latter
+                // is not `Sync`. So we have to initialize here. Setting the busy
+                // timeout helps but is fragile: on an underpowered VM the timeout
+                // may be insufficient. So mutexes it is.
+                let db_lock = init_mutex.lock().unwrap();
+                let raw_connection =
+                    sqlite::open(&config.database.path).expect("Failed to open database");
+                let mut connection =
+                    init_database(&raw_connection).expect("Failed to initialize database.");
+                std::mem::drop(db_lock);
 
-            serve_forever(&config, &mut connection, &server)
+                // Handle requests until we encounter a database error.
+                // At that point we loop and open a fresh connection.
+                serve_until_error(&config, &mut connection, &server);
+            }
         });
         guards.push(guard);
     }
