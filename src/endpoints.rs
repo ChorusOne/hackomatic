@@ -327,7 +327,12 @@ pub fn handle_leave_team(
     // We could do it automatically but let's be safe and not delete anything
     // unless a delete is explicitly what was requested.
     if !db::iter_team_members(tx, team_id)?.next().is_some() {
-        return Ok(bad_request("Leaving the team would leave it empty. Go back, refresh, then delete the team."))
+        return Ok(bad_request(
+            "It looks like all your team members have abandoned you.\n\
+            You are the last member, leaving the team would leave it empty.\n\
+            If you really want to do that to the team, then go back, \n\
+            refresh the page, and choose 'Delete Team'."
+        ))
     }
 
     let new_url = format!("{}#team-{}", config.server.prefix, team_id);
