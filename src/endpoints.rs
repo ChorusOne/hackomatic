@@ -333,3 +333,20 @@ pub fn handle_leave_team(
     let new_url = format!("{}#team-{}", config.server.prefix, team_id);
     Ok(redirect_see_other(new_url.as_bytes()))
 }
+
+pub fn handle_join_team(
+    config: &Config,
+    tx: &mut db::Transaction,
+    user: &User,
+    body: String,
+) -> db::Result<Response> {
+    let team_id = match get_body_team_id(body) {
+        Ok(id) => id,
+        Err(err_response) => return Ok(err_response),
+    };
+
+    db::add_team_member(tx, team_id, &user.email)?;
+
+    let new_url = format!("{}#team-{}", config.server.prefix, team_id);
+    Ok(redirect_see_other(new_url.as_bytes()))
+}
