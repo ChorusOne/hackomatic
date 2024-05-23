@@ -136,8 +136,67 @@ pub fn ensure_schema_exists(tx: &mut Transaction) -> Result<()> {
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
+    match statement.next()? {
+        Row => panic!("Query 'ensure_schema_exists' unexpectedly returned a row."),
+        Done => {}
+    }
+
+    let sql = r#"
+        create table if not exists progress
+        ( id         integer primary key
+        , created_at string not null
+        , phase      string not null
+        );
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
     let result = match statement.next()? {
         Row => panic!("Query 'ensure_schema_exists' unexpectedly returned a row."),
+        Done => (),
+    };
+    Ok(result)
+}
+
+pub fn get_current_phase(tx: &mut Transaction) -> Result<Option<String>> {
+    let sql = r#"
+        select phase from progress order by id desc limit 1;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    let decode_row = |statement: &Statement| Ok(statement.read(0)?);
+    let result = match statement.next()? {
+        Row => Some(decode_row(statement)?),
+        Done => None,
+    };
+    if result.is_some() {
+        if statement.next()? != Done {
+            panic!("Query 'get_current_phase' should return at most one row.");
+        }
+    }
+    Ok(result)
+}
+
+pub fn set_current_phase(tx: &mut Transaction, phase: &str) -> Result<()> {
+    let sql = r#"
+        insert into
+          progress (phase, created_at)
+        values
+          (:phase, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, phase)?;
+    let result = match statement.next()? {
+        Row => panic!("Query 'set_current_phase' unexpectedly returned a row."),
         Done => (),
     };
     Ok(result)

@@ -64,6 +64,33 @@ ol {
     margin-top: 1rem;
 }
 
+ol li {
+    position: relative;
+}
+
+@media(min-width: 1100px) {
+    ol li .here {
+        display: inline;
+        position: absolute;
+        width: 10em;
+        left: -8.5em;
+    }
+
+    ol li .here::after {
+        content: ' →';
+    }
+}
+
+@media(max-width: 1100px) {
+    ol li .here {
+        display: inline;
+        font-weight: 700;
+    }
+    ol li .here::before {
+        content: '← ';
+    }
+}
+
 ol li strong {
     display: inline-block;
     width: 6.5em;

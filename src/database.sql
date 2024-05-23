@@ -29,7 +29,22 @@ create table if not exists votes
   -- sidestep the quadratic voting property.
 , unique (voter_email, team_id)
 );
+
+create table if not exists progress
+( id         integer primary key
+, created_at string not null
+, phase      string not null
+);
 -- @end ensure_schema_exists()
+
+-- @query get_current_phase() ->? str
+select phase from progress order by id desc limit 1;
+
+-- @query set_current_phase(phase: str)
+insert into
+  progress (phase, created_at)
+values
+  (:phase, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'));
 
 -- @query count_teams_by_creator(creator_email: str) ->1 i64
 select count(1) from teams where creator_email = :creator_email;

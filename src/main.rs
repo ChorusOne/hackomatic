@@ -14,6 +14,45 @@ mod endpoints;
 
 type Response = tiny_http::Response<Cursor<Vec<u8>>>;
 
+#[derive(Copy, Clone)]
+enum Phase {
+    Registration,
+    Presentation,
+    Evaluation,
+    Revelation { reveal_top3: bool },
+}
+
+impl Phase {
+    fn from_str(name: &str) -> Option<Phase> {
+        let result = match name {
+            "registration" => Phase::Registration,
+            "presentation" => Phase::Presentation,
+            "evaluation" => Phase::Evaluation,
+            "revelation-1" => Phase::Revelation { reveal_top3: false },
+            "revelation-2" => Phase::Revelation { reveal_top3: true },
+            _ => return None,
+        };
+        Some(result)
+    }
+
+    fn to_str(&self) -> &'static str {
+        match self {
+            Phase::Registration => "registration",
+            Phase::Presentation => "presentation",
+            Phase::Evaluation => "evaluation",
+            Phase::Revelation { reveal_top3: false } => "revelation-1",
+            Phase::Revelation { reveal_top3: true } => "revelation-2",
+        }
+    }
+}
+
+fn load_phase(tx: &mut db::Transaction) -> db::Result<Phase> {
+    let result = db::get_current_phase(tx)?
+        .and_then(|p| Phase::from_str(&p))
+        .unwrap_or(Phase::Registration);
+    Ok(result)
+}
+
 fn load_config() -> Config {
     let mut args = std::env::args();
 

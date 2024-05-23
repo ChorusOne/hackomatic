@@ -5,7 +5,7 @@ use tiny_http::Header;
 
 use crate::config::Config;
 use crate::database as db;
-use crate::{Response, User};
+use crate::{Phase, Response, User};
 
 fn respond_html(markup: Markup) -> Response {
     Response::from_string(markup.into_string()).with_header(
@@ -77,7 +77,12 @@ fn view_email<'a>(config: &Config, email: &'a str) -> &'a str {
     }
 }
 
-fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -> Markup {
+fn view_index(
+    config: &Config,
+    user: &User,
+    phase: Phase,
+    teams: &[(db::Team, Vec<String>)],
+) -> Markup {
     html! {
         (view_html_head("Hack-o-matic"))
         body {
@@ -87,26 +92,7 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
             p {
                 "Welcome to the hackaton support system, " (user.email) "."
             }
-            h2 { "Progress" }
-            p { "The hackathon proceeds in four phases:" }
-            ol {
-                li {
-                    strong { "Registration" }
-                    " — Participants form teams."
-                }
-                li {
-                    strong { "Presentation" }
-                    " — Teams present what they built."
-                }
-                li {
-                    strong { "Evaluation" }
-                    " — Everybody votes for their favorite teams."
-                }
-                li {
-                    strong { "Celebration" }
-                    " — We announce and celebrate the winners."
-                }
-            }
+            (view_phases(phase))
             h2 { "Teams" }
             p {
                 details {
@@ -133,6 +119,39 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
                     }
                     (form_team_actions(config, user, team.0.id, &team.1))
                 }
+            }
+        }
+    }
+}
+
+fn view_phases(current: Phase) -> Markup {
+    let here = html! {
+        " " div .here { "We are here" }
+    };
+
+    html! {
+        h2 { "Progress" }
+        p { "The hackathon proceeds in four phases:" }
+        ol {
+            li {
+                strong { "Registration" }
+                " — Participants form teams."
+                @if matches!(current, Phase::Registration) { (here) }
+            }
+            li {
+                strong { "Presentation" }
+                " — Teams present what they built."
+                @if matches!(current, Phase::Presentation) { (here) }
+            }
+            li {
+                strong { "Evaluation" }
+                " — Everybody votes for their favorite teams."
+                @if matches!(current, Phase::Evaluation) { (here) }
+            }
+            li {
+                strong { "Revelation" }
+                " — We announce and celebrate the winners."
+                @if matches!(current, Phase::Revelation { .. }) { (here) }
             }
         }
     }
@@ -182,6 +201,7 @@ pub fn handle_index(
     tx: &mut db::Transaction,
     user: &User,
 ) -> db::Result<Response> {
+    let phase = crate::load_phase(tx)?;
     let teams = db::iter_teams(tx)?.collect::<Result<Vec<_>, _>>()?;
     let mut teams_with_members = Vec::with_capacity(teams.len());
     for team in teams {
@@ -189,7 +209,7 @@ pub fn handle_index(
         teams_with_members.push((team, members));
     }
 
-    let body = view_index(config, &user, &teams_with_members);
+    let body = view_index(config, &user, phase, &teams_with_members);
     Ok(respond_html(body))
 }
 
@@ -329,9 +349,7 @@ pub fn handle_delete_team(
     // Confirm that the team is now empty.
     for _member in db::iter_team_members(tx, team_id)? {
         // Returning an error status code will also roll back the transaction.
-        return Ok(conflict(
-            "The team is not empty, we can't delete it yet.",
-        ));
+        return Ok(conflict("The team is not empty, we can't delete it yet."));
     }
 
     db::delete_team(tx, team_id)?;
@@ -361,8 +379,8 @@ pub fn handle_leave_team(
             "It looks like all your team members have abandoned you.\n\
             You are the last member, leaving the team would leave it empty.\n\
             If you really want to do that to the team, then go back, \n\
-            refresh the page, and choose 'Delete Team'."
-        ))
+            refresh the page, and choose 'Delete Team'.",
+        ));
     }
 
     let new_url = format!("{}#team-{}", config.server.prefix, team_id);
@@ -385,8 +403,8 @@ pub fn handle_join_team(
     if db::iter_team_members(tx, team_id)?.next().is_none() {
         return Ok(conflict(
             "It looks like all team members have left this team before you joined.\n\
-            It no longer exists, but if you like you can go back and create a new team."
-        ))
+            It no longer exists, but if you like you can go back and create a new team.",
+        ));
     }
 
     db::add_team_member(tx, team_id, &user.email)?;
