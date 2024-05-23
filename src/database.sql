@@ -67,7 +67,11 @@ insert into
 values
   ( :team_id
   , :member_email
-  );
+  )
+on conflict
+  -- If the user is already a member, making them a member again does nothing.
+  do nothing
+;
 
 -- @query remove_team_member(team_id: i64, member_email: str)
 delete from

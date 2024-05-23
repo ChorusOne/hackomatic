@@ -233,7 +233,11 @@ pub fn add_team_member(tx: &mut Transaction, team_id: i64, member_email: &str) -
         values
           ( :team_id
           , :member_email
-          );
+          )
+        on conflict
+          -- If the user is already a member, making them a member again does nothing.
+          do nothing
+        ;
         "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
