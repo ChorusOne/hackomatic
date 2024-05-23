@@ -101,10 +101,16 @@ fn view_index(
                 (view_phase_admin_form(config))
             }
             h2 { "Teams" }
-            p {
-                details {
-                    summary { "Add a new team" }
-                    (form_create_team(config))
+            @if matches!(phase, Phase::Registration) {
+                p {
+                    details {
+                        summary { "Add a new team" }
+                        (form_create_team(config))
+                    }
+                }
+            } @else {
+                p {
+                    "Registration is now closed. These are the teams:"
                 }
             }
             @for team in teams {
@@ -124,7 +130,9 @@ fn view_index(
                             (view_email(config, member))
                         }
                     }
-                    (form_team_actions(config, user, team.0.id, &team.1))
+                    @if matches!(phase, Phase::Registration) {
+                        (form_team_actions(config, user, team.0.id, &team.1))
+                    }
                 }
             }
         }
