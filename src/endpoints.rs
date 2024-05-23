@@ -75,6 +75,26 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
             p {
                 "Welcome to the hackaton support system, " (user.email) "."
             }
+            h2 { "Status" }
+            p { "The hackathon proceeds in four phases:" }
+            ol {
+                li {
+                    strong { "Registration" }
+                    " — Participants form teams."
+                }
+                li {
+                    strong { "Presentation" }
+                    " — Teams present what they built."
+                }
+                li {
+                    strong { "Evaluation" }
+                    " — Everybody votes for their favorite teams."
+                }
+                li {
+                    strong { "Celebration" }
+                    " — We announce and celebrate the winners."
+                }
+            }
             h2 { "Teams" }
             p {
                 details {
@@ -104,10 +124,6 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
                     (form_team_actions(config, user, team.0.id, &team.1))
                 }
             }
-            h2 { "Vote" }
-            p { "Voting has not commenced yet, check back later!" }
-            h2 { "Winners" }
-            p { "The winners will be announced here after the vote closes." }
         }
     }
 }

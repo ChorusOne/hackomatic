@@ -38,6 +38,11 @@ h2 {
     font-weight: 400;
 }
 
+ol li strong {
+    display: inline-block;
+    width: 6.5em;
+}
+
 h3 {
     margin-top: 2rem;
     font-size: 1rem;
