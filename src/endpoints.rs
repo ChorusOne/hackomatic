@@ -85,22 +85,24 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
             @for team in teams {
                 // We give teams an anchor so we can refer to it from a
                 // redirect and even highlight after creation using CSS.
-                h3 id=(format!("team-{}", team.0.id)) {
-                    a href=(format!("{}#team-{}", config.server.prefix, team.0.id)) {
-                        (team.0.name)
+                div .team id=(format!("team-{}", team.0.id)) {
+                    h3 {
+                        a href=(format!("{}#team-{}", config.server.prefix, team.0.id)) {
+                            (team.0.name)
+                        }
                     }
-                }
-                p .description { (team.0.description) }
-                p .members {
-                    @if team.1.is_empty() {
-                        // TODO: Should I just delete it after the last person leaves?
-                        "All members have left this team."
-                    } else {
-                        "Members: "
-                        (team.1.join(", "))
+                    p .description { (team.0.description) }
+                    p .members {
+                        @if team.1.is_empty() {
+                            // TODO: Should I just delete it after the last person leaves?
+                            "All members have left this team."
+                        } else {
+                            "Members: "
+                            (team.1.join(", "))
+                        }
                     }
+                    (form_team_actions(config, user, team.0.id, &team.1))
                 }
-                (form_team_actions(config, user, team.0.id, &team.1))
             }
             h2 { "Vote" }
             p { "Voting has not commenced yet, check back later!" }
