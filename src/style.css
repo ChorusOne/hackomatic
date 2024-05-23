@@ -23,7 +23,7 @@ html {
 }
 
 body {
-    font-family: 'Work Sans';
+    font-family: 'Atkinson Hyperlegible';
     line-height: 1.6em;
     max-width: 40em;
     margin-top: 4em;
@@ -33,6 +33,10 @@ body {
     padding-left: 2em;
     padding-right: 2em;
     color: var(--fg);
+}
+
+h1, h2, h3 {
+    font-family: 'Work Sans';
 }
 
 a {

@@ -37,11 +37,9 @@ fn view_html_head(page_title: &str) -> Markup {
         (DOCTYPE)
         head {
             meta charset="utf-8";
-            link rel="preconnect" href="https://rsms.me/";
-            link rel="stylesheet" href="https://rsms.me/inter/inter.css";
             link rel="preconnect" href="https://fonts.googleapis.com";
             link rel="preconnect" href="https://fonts.gstatic.com" crossorigin;
-            link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet";
+            link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,700..800;1,900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700&display=swap" rel="stylesheet";
             meta name="viewport" content="width=device-width, initial-scale=1";
             title { (page_title) }
             style { (get_stylesheet()) }
