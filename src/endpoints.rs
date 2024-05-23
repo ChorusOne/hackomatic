@@ -13,16 +13,23 @@ fn respond_html(markup: Markup) -> Response {
     )
 }
 
+fn respond_error<R: Into<String>>(reason: R) -> Response {
+    let page = html! {
+        (view_html_head("Hack-o-matic Error"))
+        body {
+            h1 { "D'oh!" }
+            p { (reason.into()) }
+        }
+    };
+    respond_html(page)
+}
+
 fn bad_request<R: Into<String>>(reason: R) -> Response {
-    Response::from_string(reason.into()).with_status_code(400)
+    respond_error(reason).with_status_code(400)
 }
 
 fn conflict<R: Into<String>>(reason: R) -> Response {
-    Response::from_string(reason.into()).with_status_code(409)
-}
-
-fn internal_error<R: Into<String>>(reason: R) -> Response {
-    Response::from_string(reason.into()).with_status_code(500)
+    respond_error(reason).with_status_code(409)
 }
 
 fn redirect_see_other<R: AsRef<[u8]>>(location: R) -> Response {
