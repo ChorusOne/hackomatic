@@ -5,16 +5,25 @@
 
 html {
     font-size: 18px;
+
+    --bg: #ffc013;
+    --fg: #111;
+    --dp: #fff;
+
+    background-color: var(--bg);
 }
 
 body {
     font-family: 'Work Sans';
     line-height: 1.6em;
     max-width: 40em;
-    margin-top: 3em;
-    margin-bottom: 4em;
+    margin-top: 4em;
+    margin-bottom: 5em;
     margin-left: auto;
     margin-right: auto;
+    padding-left: 2em;
+    padding-right: 2em;
+    color: var(--fg);
 }
 
 a {
@@ -35,7 +44,11 @@ h2 {
     margin-bottom: 1rem;
     font-size: 2em;
     line-height: 2rem;
-    font-weight: 400;
+    font-weight: 800;
+}
+
+ol {
+    margin-top: 1rem;
 }
 
 ol li strong {
@@ -43,8 +56,8 @@ ol li strong {
     width: 6.5em;
 }
 
-details summary {
-    margin-bottom: 1rem;
+details form {
+    margin-top: 0.5rem;
 }
 
 input, button {
@@ -66,26 +79,62 @@ label input {
     width: calc(100% - 12rem);
 }
 
+button {
+    background-color: inherit;
+    border: 2pt solid var(--fg);
+    border-radius: 3pt;
+}
+
+button:active {
+    background-color: var(--fg);
+    color: var(--dp);
+}
+
 h3 {
-    margin-top: 2rem;
+    margin-top: 4.5rem;
+    margin-bottom: 0.5rem;
     font-size: 1rem;
     font-size: 1.4rem;
     line-height: 2rem;
+
+    background-color: var(--fg);
+    color: var(--bg);
+    display: inline-block;
+    padding: 0.3rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    border-radius: 1pt;
+
     font-weight: 700;
+    font-style: italic;
+    transform: skew(-13deg);
+
+    position: relative;
+}
+
+h3 a {
+    display: block;
+    transform: skew(13deg);
 }
 
 .team:target {
-    color: red;
+    color: var(--fg-a2);
     position: relative;
 }
 
-h3 {
-    position: relative;
+.team:target h3 {
+    color: var(--dp);
 }
 
 .team:target h3::before {
+    transform: skew(13deg);
+    color: var(--fg);
     content: '»';
     display: block;
     position: absolute;
     left: -1em;
+}
+
+.team p {
+    margin-bottom: 0.5rem;
 }

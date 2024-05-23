@@ -113,13 +113,8 @@ fn view_index(config: &Config, user: &User, teams: &[(db::Team, Vec<String>)]) -
                     }
                     p .description { (team.0.description) }
                     p .members {
-                        @if team.1.is_empty() {
-                            // TODO: Should I just delete it after the last person leaves?
-                            "All members have left this team."
-                        } else {
-                            "Members: "
-                            (team.1.join(", "))
-                        }
+                        strong { "Members: " }
+                        (team.1.join(", "))
                     }
                     (form_team_actions(config, user, team.0.id, &team.1))
                 }
