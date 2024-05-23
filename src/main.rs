@@ -123,6 +123,7 @@ fn handle_request_impl(
         match url_inner.as_ref() {
             "/create-team" => endpoints::handle_create_team(config, tx, &user, body),
             "/delete-team" => endpoints::handle_delete_team(config, tx, &user, body),
+            "/leave-team" => endpoints::handle_leave_team(config, tx, &user, body),
             _ => Ok(not_found),
         }
     } else {

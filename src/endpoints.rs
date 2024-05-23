@@ -308,3 +308,28 @@ pub fn handle_delete_team(
 
     Ok(redirect_see_other(config.server.prefix.as_bytes()))
 }
+
+pub fn handle_leave_team(
+    config: &Config,
+    tx: &mut db::Transaction,
+    user: &User,
+    body: String,
+) -> db::Result<Response> {
+    let team_id = match get_body_team_id(body) {
+        Ok(id) => id,
+        Err(err_response) => return Ok(err_response),
+    };
+
+    // Remove ourselves from the team first.
+    db::remove_team_member(tx, team_id, &user.email)?;
+
+    // Confirm that the team is not empty. If it is, we should have deleted it.
+    // We could do it automatically but let's be safe and not delete anything
+    // unless a delete is explicitly what was requested.
+    if !db::iter_team_members(tx, team_id)?.next().is_some() {
+        return Ok(bad_request("Leaving the team would leave it empty. Go back, refresh, then delete the team."))
+    }
+
+    let new_url = format!("{}#team-{}", config.server.prefix, team_id);
+    Ok(redirect_see_other(new_url.as_bytes()))
+}
