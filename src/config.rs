@@ -15,6 +15,9 @@ pub struct Config {
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
+    /// The email address of the user who can administrate the hackathon.
+    pub admin_email: String,
+
     /// The suffix to remove from user emails when listing them.
     pub email_suffix: String,
 

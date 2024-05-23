@@ -19,7 +19,8 @@ enum Phase {
     Registration,
     Presentation,
     Evaluation,
-    Revelation { reveal_top3: bool },
+    Revelation,
+    Celebration,
 }
 
 impl Phase {
@@ -28,8 +29,8 @@ impl Phase {
             "registration" => Phase::Registration,
             "presentation" => Phase::Presentation,
             "evaluation" => Phase::Evaluation,
-            "revelation-1" => Phase::Revelation { reveal_top3: false },
-            "revelation-2" => Phase::Revelation { reveal_top3: true },
+            "revelation" => Phase::Revelation,
+            "celebration" => Phase::Celebration,
             _ => return None,
         };
         Some(result)
@@ -40,8 +41,8 @@ impl Phase {
             Phase::Registration => "registration",
             Phase::Presentation => "presentation",
             Phase::Evaluation => "evaluation",
-            Phase::Revelation { reveal_top3: false } => "revelation-1",
-            Phase::Revelation { reveal_top3: true } => "revelation-2",
+            Phase::Revelation => "revelation",
+            Phase::Celebration => "celebration",
         }
     }
 
@@ -50,7 +51,8 @@ impl Phase {
             Phase::Registration => Phase::Registration,
             Phase::Presentation => Phase::Registration,
             Phase::Evaluation => Phase::Presentation,
-            Phase::Revelation { .. } => Phase::Evaluation,
+            Phase::Revelation => Phase::Evaluation,
+            Phase::Celebration => Phase::Revelation,
         }
     }
 
@@ -58,8 +60,9 @@ impl Phase {
         match self {
             Phase::Registration => Phase::Presentation,
             Phase::Presentation => Phase::Evaluation,
-            Phase::Evaluation => Phase::Revelation { reveal_top3: false },
-            _ => Phase::Revelation { reveal_top3: true },
+            Phase::Evaluation => Phase::Revelation,
+            Phase::Revelation => Phase::Celebration,
+            Phase::Celebration => Phase::Celebration,
         }
     }
 }
@@ -130,6 +133,7 @@ fn handle_request(
 
 pub struct User {
     email: String,
+    is_admin: bool,
 }
 
 fn handle_request_impl(
@@ -162,7 +166,10 @@ fn handle_request_impl(
 
     println!("{:4?} {} {}", request.method(), request.url(), email);
 
-    let user = User { email };
+    let user = User {
+        is_admin: email == config.app.admin_email,
+        email,
+    };
 
     let not_found = Response::from_string("Not found.").with_status_code(404);
     let url_inner = match request.url().strip_prefix(&config.server.prefix) {
@@ -182,6 +189,8 @@ fn handle_request_impl(
             "/delete-team" => endpoints::handle_delete_team(config, tx, &user, body),
             "/leave-team" => endpoints::handle_leave_team(config, tx, &user, body),
             "/join-team" => endpoints::handle_join_team(config, tx, &user, body),
+            "/prev" => endpoints::handle_phase_prev(config, tx, &user),
+            "/next" => endpoints::handle_phase_next(config, tx, &user),
             _ => Ok(not_found),
         }
     } else {

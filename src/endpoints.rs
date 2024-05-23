@@ -32,6 +32,10 @@ fn conflict<R: Into<String>>(reason: R) -> Response {
     respond_error(reason).with_status_code(409)
 }
 
+fn forbidden<R: Into<String>>(reason: R) -> Response {
+    respond_error(reason).with_status_code(403)
+}
+
 fn redirect_see_other<R: AsRef<[u8]>>(location: R) -> Response {
     Response::from_string("")
         .with_status_code(303)
@@ -93,6 +97,9 @@ fn view_index(
                 "Welcome to the hackaton support system, " (user.email) "."
             }
             (view_phases(phase))
+            @if user.is_admin {
+                (view_phase_admin_form(config))
+            }
             h2 { "Teams" }
             p {
                 details {
@@ -124,6 +131,18 @@ fn view_index(
     }
 }
 
+fn view_phase_admin_form(config: &Config) -> Markup {
+    let submit_next = format!("{}/next", config.server.prefix);
+    let submit_prev = format!("{}/prev", config.server.prefix);
+    html! {
+        form method="post" {
+            button type="submit" formaction=(submit_prev) { "Restore Previous Phase" }
+            " "
+            button type="submit" formaction=(submit_next) { "Start Next Phase" }
+        }
+    }
+}
+
 fn view_phases(current: Phase) -> Markup {
     let here = html! {
         " " div .here { "We are here" }
@@ -131,7 +150,7 @@ fn view_phases(current: Phase) -> Markup {
 
     html! {
         h2 { "Progress" }
-        p { "The hackathon proceeds in four phases:" }
+        p { "The hackathon proceeds in five steps:" }
         ol {
             li {
                 strong { "Registration" }
@@ -150,8 +169,13 @@ fn view_phases(current: Phase) -> Markup {
             }
             li {
                 strong { "Revelation" }
-                " — We announce and celebrate the winners."
-                @if matches!(current, Phase::Revelation { .. }) { (here) }
+                " — We announce the winners."
+                @if matches!(current, Phase::Revelation) { (here) }
+            }
+            li {
+                strong { "Celebration" }
+                " — The end of the hackathon."
+                @if matches!(current, Phase::Celebration) { (here) }
             }
         }
     }
@@ -411,4 +435,30 @@ pub fn handle_join_team(
 
     let new_url = format!("{}#team-{}", config.server.prefix, team_id);
     Ok(redirect_see_other(new_url.as_bytes()))
+}
+
+pub fn handle_phase_prev(
+    config: &Config,
+    tx: &mut db::Transaction,
+    user: &User,
+) -> db::Result<Response> {
+    if !user.is_admin {
+        return Ok(forbidden("Only the admin is allowed to change the phase."));
+    }
+    let current = crate::load_phase(tx)?;
+    db::set_current_phase(tx, current.prev().to_str())?;
+    Ok(redirect_see_other(config.server.prefix.as_bytes()))
+}
+
+pub fn handle_phase_next(
+    config: &Config,
+    tx: &mut db::Transaction,
+    user: &User,
+) -> db::Result<Response> {
+    if !user.is_admin {
+        return Ok(forbidden("Only the admin is allowed to change the phase."));
+    }
+    let current = crate::load_phase(tx)?;
+    db::set_current_phase(tx, current.next().to_str())?;
+    Ok(redirect_see_other(config.server.prefix.as_bytes()))
 }
