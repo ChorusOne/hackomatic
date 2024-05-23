@@ -168,7 +168,14 @@ pub fn handle_index(
     let teams = db::iter_teams(tx)?.collect::<Result<Vec<_>, _>>()?;
     let mut teams_with_members = Vec::with_capacity(teams.len());
     for team in teams {
-        let members = db::iter_team_members(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
+        let mut members = db::iter_team_members(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
+
+        // Remove the shared email suffix to fit more data on the screen.
+        for member in members.iter_mut() {
+            if member.ends_with(&config.app.email_suffix) {
+                member.truncate(member.len() - config.app.email_suffix.len());
+            }
+        }
         teams_with_members.push((team, members));
     }
 

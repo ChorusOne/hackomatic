@@ -6,6 +6,7 @@ prefix = "/hack"
 path = "hackomatic.sqlite3"
 
 [app]
+email_suffix = "@example.com"
 max_teams_per_creator = 3
 
 [debug]

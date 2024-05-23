@@ -15,6 +15,9 @@ pub struct Config {
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
+    /// The suffix to remove from user emails when listing them.
+    pub email_suffix: String,
+
     /// The maximum number of teams that a user can create.
     pub max_teams_per_creator: u32,
 }
