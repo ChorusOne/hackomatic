@@ -135,9 +135,8 @@ label input {
 }
 
 h3 {
-    margin-top: 4.5rem;
+    margin-top: 0.5rem;
     margin-bottom: 0.5rem;
-    font-size: 1rem;
     font-size: 1.4rem;
     line-height: 2rem;
 
@@ -148,6 +147,7 @@ h3 {
     padding-left: 0.5rem;
     padding-right: 0.5rem;
     border-radius: 1pt;
+    margin-left: -0.5rem;
 
     font-weight: 700;
     font-style: italic;
@@ -159,6 +159,10 @@ h3 {
 h3 a {
     display: block;
     transform: skew(13deg);
+}
+
+.team + .team, p + .team {
+    margin-top: 3rem;
 }
 
 .team:target {

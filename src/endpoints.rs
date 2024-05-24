@@ -111,10 +111,6 @@ fn view_index(
                         (form_create_team(config))
                     }
                 }
-            } @else {
-                p {
-                    "Registration is now closed. These are the teams:"
-                }
             }
             @for team in teams {
                 // We give teams an anchor so we can refer to it from a
