@@ -100,7 +100,13 @@ fn view_email<'a>(config: &Config, email: &'a str) -> &'a str {
     }
 }
 
-fn view_index(config: &Config, user: &User, phase: Phase, teams: &[TeamEntry]) -> Markup {
+fn view_index(
+    config: &Config,
+    user: &User,
+    phase: Phase,
+    teams: &[TeamEntry],
+    cheaters: &[String],
+) -> Markup {
     html! {
         (view_html_head("Hack-o-matic"))
         body {
@@ -116,6 +122,15 @@ fn view_index(config: &Config, user: &User, phase: Phase, teams: &[TeamEntry]) -
             }
             @if matches!(phase, Phase::Evaluation) {
                 (view_voting_help(config))
+            }
+            @if !cheaters.is_empty() {
+                h2 { "Hall of Shame" }
+                p { "The following people tried to cheat and vote for themselves:" }
+                ul {
+                    @for cheater_email in cheaters {
+                        li { (view_email(config, &cheater_email)) }
+                    }
+                }
             }
             h2 { "Teams" }
             @if matches!(phase, Phase::Registration) {
@@ -372,7 +387,9 @@ pub fn handle_index(
         team_entries.push(entry);
     }
 
-    let body = view_index(config, &user, phase, &team_entries);
+    let cheaters = db::iter_cheaters(tx)?.collect::<Result<Vec<_>, _>>()?;
+
+    let body = view_index(config, &user, phase, &team_entries, &cheaters);
     Ok(respond_html(body))
 }
 
