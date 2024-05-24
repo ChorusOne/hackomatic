@@ -80,6 +80,19 @@ fn get_stylesheet() -> Markup {
     html! { (data) }
 }
 
+// Same for the script.
+#[cfg(debug_assertions)]
+fn get_vote_script() -> Markup {
+    let data = std::fs::read_to_string("src/vote.js")
+        .expect("Need to run from repo root in debug mode.");
+    maud::PreEscaped(data)
+}
+
+#[cfg(not(debug_assertions))]
+fn get_vote_script() -> Markup {
+    maud::PreEscaped(include_str!("vote.js"))
+}
+
 fn view_email<'a>(config: &Config, email: &'a str) -> &'a str {
     match email.strip_suffix(&config.app.email_suffix) {
         Some(stripped) => stripped,
@@ -119,7 +132,10 @@ fn view_index(
                 }
             }
             @if matches!(phase, Phase::Evaluation) {
-                form action=(format!("{}/vote", config.server.prefix)) method="post" {
+                form
+                    action=(format!("{}/vote", config.server.prefix))
+                    method="post"
+                {
                     @for entry in teams {
                         (view_team(config, user, phase, entry))
                     }
@@ -133,7 +149,7 @@ fn view_index(
                             " left to spend."
                         }
                         footer {
-                            button type="submit" { "Submit Vote" }
+                            button type="submit" #submit-vote { "Submit Vote" }
                             p {
                                 "You can still change your vote after you submit, "
                                 "as long as voting is still open."
@@ -141,7 +157,13 @@ fn view_index(
                         }
                     }
                 }
-
+                script {
+                    "const coinsToSpend = " (config.app.coins_to_spend) ";\n"
+                    "const inputBoxes = [";
+                    @for entry in teams { "input" (entry.team.id) ", " }
+                    "];\n"
+                    (get_vote_script())
+                }
             } @else {
                 @for entry in teams {
                     (view_team(config, user, phase, entry))
@@ -152,6 +174,10 @@ fn view_index(
 }
 
 fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> Markup {
+    // Due to quadratic cost, the max points you can spend is the square root
+    // of the coins you have.
+    let max_points = (config.app.coins_to_spend as f32).sqrt().floor() as i32;
+
     html! {
         // We give teams an anchor so we can refer to it from a
         // redirect and even highlight after creation using CSS.
@@ -177,17 +203,21 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
                     "Your points: ";
                     @if entry.member_emails.contains(&user.email) {
                         input
+                            id=(format!("input{}", entry.team.id))
+                            name=(format!("team-{}", entry.team.id))
                             disabled
                             value="0"
                             title="You can’t vote for this team because you are a member.";
                     } @else {
                         input
-                          name=(format!("team-{}", entry.team.id))
-                          type="number"
-                          min=(-(config.app.coins_to_spend as i32))
-                          max=(config.app.coins_to_spend)
-                          value="0";
+                            id=(format!("input{}", entry.team.id))
+                            name=(format!("team-{}", entry.team.id))
+                            type="number"
+                            min=(-max_points)
+                            max=(max_points)
+                            value="0";
                     }
+                    span .cost id=(format!("cost{}", entry.team.id));
                 }
             }
         }

@@ -115,14 +115,14 @@ button {
     border-right-width: 3pt;
 }
 
-button:active {
+button:enabled:active {
     border-bottom-width: 2pt;
     border-right-width: 2pt;
     border-top-width: 3pt;
     border-left-width: 3pt;
 }
 
-input:disabled {
+input:disabled, button:disabled {
     background: repeating-linear-gradient(
       -45deg,
       transparent,
@@ -151,7 +151,11 @@ details label input {
     line-height: 1rem;
 }
 
-input.modified {
+.team label .cost {
+    margin-left: 0.5rem;
+}
+
+input.nonzero {
     font-weight: 700;
 }
 
