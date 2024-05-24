@@ -128,9 +128,10 @@ input:disabled, button:disabled {
       -45deg,
       var(--dp),
       var(--dp) 3pt,
-      color-mix(in srgb, var(--fg) 20%, var(--dp)) 3pt,
-      color-mix(in srgb, var(--fg) 20%, var(--dp)) 4.5pt
+      color-mix(in srgb, var(--fg) 15%, var(--dp)) 3pt,
+      color-mix(in srgb, var(--fg) 15%, var(--dp)) 4.5pt
     );
+    color: color-mix(in srgb, var(--fg) 60%, var(--dp));
 }
 
 label {
