@@ -9,7 +9,7 @@ path = "hackomatic.sqlite3"
 admin_email = "admin@example.com"
 email_suffix = "@example.com"
 max_teams_per_creator = 3
-coins_to_spend = 50
+coins_to_spend = 100
 
 [debug]
 unsafe_default_email = "admin@example.com"

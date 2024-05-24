@@ -302,30 +302,28 @@ fn view_voting_help(config: &Config) -> Markup {
             "you can spend all your coins on them, "
             "but you can award more points in total "
             "by distributing your votes across multiple teams. "
-            "For example, here are some ways to spend 50 coins, "
-            "with the points in bold and the cost in parentheses:"
+            "For example, here are some ways to spend 100 coins, "
+            "with the points in bold and the cost per team in parentheses:"
         }
         ul {
             li {
-                strong { "7" } " (49), "
-                strong { "1" } " (1)"
+                "1 × " strong { "10" } " (100) "
             }
             li {
-                strong { "6" } " (36), "
-                strong { "3" } " (9), "
-                strong { "2" } " (4), "
-                strong { "1" } " (1)"
+                "2 × " strong { "7" } " (49),\u{2002}"
+                "2 × " strong { "1" } " (1)"
             }
             li {
-                strong { "5" } " (25), "
-                strong { "5" } " (25)"
+                "2 × " strong { "6" } " (36),\u{2002}"
+                "1 × " strong { "5" } " (25),\u{2002}"
+                "3 × " strong { "1" } " (1)"
             }
             li {
-                strong { "4" } " (16), "
-                strong { "4" } " (16), "
-                strong { "4" } " (16), "
-                strong { "1" } " (1), "
-                strong { "1" } " (1)"
+                "4 × " strong { "5" } " (25)"
+            }
+            li {
+                "6 × " strong { "4" } " (16),\u{2002}"
+                "1 × " strong { "2" } " (4)"
             }
         }
     }
