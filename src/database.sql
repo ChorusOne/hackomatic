@@ -35,6 +35,13 @@ create table if not exists progress
 , created_at string not null
 , phase      string not null
 );
+
+create table if not exists cheaters
+( id            integer primary key
+, cheater_email string not null
+, created_at    string not null
+, unique (cheater_email)
+);
 -- @end ensure_schema_exists()
 
 -- @query get_current_phase() ->? str
@@ -116,3 +123,22 @@ where
   team_id = :team_id
 order by
   id asc;
+
+-- @query iter_member_teams(member_email: str) ->* i64
+select
+  team_id
+from
+  team_memberships
+where
+  member_email = :member_email;
+
+-- @query set_cheater(email: str)
+insert into
+  cheaters (cheater_email, created_at)
+values
+  (:email, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+on conflict
+  do nothing;
+
+-- @query iter_cheaters() ->* str
+select cheater_email from cheaters;

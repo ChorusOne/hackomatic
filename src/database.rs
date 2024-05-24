@@ -153,6 +153,24 @@ pub fn ensure_schema_exists(tx: &mut Transaction) -> Result<()> {
         Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
     };
     statement.reset()?;
+    match statement.next()? {
+        Row => panic!("Query 'ensure_schema_exists' unexpectedly returned a row."),
+        Done => {}
+    }
+
+    let sql = r#"
+        create table if not exists cheaters
+        ( id            integer primary key
+        , cheater_email string not null
+        , created_at    string not null
+        , unique (cheater_email)
+        );
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
     let result = match statement.next()? {
         Row => panic!("Query 'ensure_schema_exists' unexpectedly returned a row."),
         Done => (),
@@ -395,6 +413,71 @@ pub fn iter_team_members<'i, 't, 'a>(
     };
     statement.reset()?;
     statement.bind(1, team_id)?;
+    let decode_row = |statement: &Statement| Ok(statement.read(0)?);
+    let result = Iter {
+        statement,
+        decode_row,
+    };
+    Ok(result)
+}
+
+pub fn iter_member_teams<'i, 't, 'a>(
+    tx: &'i mut Transaction<'t, 'a>,
+    member_email: &str,
+) -> Result<Iter<'i, 'a, i64>> {
+    let sql = r#"
+        select
+          team_id
+        from
+          team_memberships
+        where
+          member_email = :member_email;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, member_email)?;
+    let decode_row = |statement: &Statement| Ok(statement.read(0)?);
+    let result = Iter {
+        statement,
+        decode_row,
+    };
+    Ok(result)
+}
+
+pub fn set_cheater(tx: &mut Transaction, email: &str) -> Result<()> {
+    let sql = r#"
+        insert into
+          cheaters (cheater_email, created_at)
+        values
+          (:email, strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+        on conflict
+          do nothing;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, email)?;
+    let result = match statement.next()? {
+        Row => panic!("Query 'set_cheater' unexpectedly returned a row."),
+        Done => (),
+    };
+    Ok(result)
+}
+
+pub fn iter_cheaters<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i, 'a, String>> {
+    let sql = r#"
+        select cheater_email from cheaters;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
     let decode_row = |statement: &Statement| Ok(statement.read(0)?);
     let result = Iter {
         statement,

@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use maud::{html, Markup, DOCTYPE};
 use tiny_http::Header;
@@ -83,8 +83,8 @@ fn get_stylesheet() -> Markup {
 // Same for the script.
 #[cfg(debug_assertions)]
 fn get_vote_script() -> Markup {
-    let data = std::fs::read_to_string("src/vote.js")
-        .expect("Need to run from repo root in debug mode.");
+    let data =
+        std::fs::read_to_string("src/vote.js").expect("Need to run from repo root in debug mode.");
     maud::PreEscaped(data)
 }
 
@@ -100,12 +100,7 @@ fn view_email<'a>(config: &Config, email: &'a str) -> &'a str {
     }
 }
 
-fn view_index(
-    config: &Config,
-    user: &User,
-    phase: Phase,
-    teams: &[TeamEntry],
-) -> Markup {
+fn view_index(config: &Config, user: &User, phase: Phase, teams: &[TeamEntry]) -> Markup {
     html! {
         (view_html_head("Hack-o-matic"))
         body {
@@ -634,7 +629,9 @@ pub fn handle_vote(
                     (Ok(team_id), Ok(points)) => {
                         teams_points.insert(team_id, points);
                     }
-                    (_, Err(..)) => return Ok(bad_request("You need to enter a number for every team.")),
+                    (_, Err(..)) => {
+                        return Ok(bad_request("You need to enter a number for every team."))
+                    }
                     (Err(..), _) => return Ok(bad_request("Invalid team id.")),
                 }
             }
@@ -650,9 +647,23 @@ pub fn handle_vote(
     if coins_spent > config.app.coins_to_spend as i64 {
         return Ok(bad_request(format!(
             "You tried to spend {} coins, but you can spend at most {}.",
-            coins_spent,
-            config.app.coins_to_spend,
+            coins_spent, config.app.coins_to_spend,
         )));
+    }
+
+    // If the user tries to vote for a team that they're a member of, make the
+    // vote negative and add them to the hall of shame.
+    let mut did_cheat = false;
+    for team_id_opt in db::iter_member_teams(tx, &user.email)? {
+        if let Some(p) = teams_points.get_mut(&team_id_opt?) {
+            if *p > 0 {
+                *p = -*p;
+                did_cheat = true;
+            }
+        }
+    }
+    if did_cheat {
+        db::set_cheater(tx, &user.email)?;
     }
 
     Ok(redirect_see_other(config.server.prefix.as_bytes()))
