@@ -50,7 +50,7 @@ fn view_html_head(page_title: &str) -> Markup {
             meta charset="utf-8";
             link rel="preconnect" href="https://fonts.googleapis.com";
             link rel="preconnect" href="https://fonts.gstatic.com" crossorigin;
-            link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,700..800;1,900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700&display=swap" rel="stylesheet";
+            link href="https://fonts.googleapis.com/css2?family=Work+Sans:ital,wght@0,700..800;1,900&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet";
             meta name="viewport" content="width=device-width, initial-scale=1";
             title { (page_title) }
             style { (get_stylesheet()) }
@@ -99,6 +99,9 @@ fn view_index(
             (view_phases(phase))
             @if user.is_admin {
                 (view_phase_admin_form(config))
+            }
+            @if matches!(phase, Phase::Evaluation) {
+                (view_voting_help(config))
             }
             h2 { "Teams" }
             @if matches!(phase, Phase::Registration) {
@@ -184,6 +187,53 @@ fn view_phases(current: Phase) -> Markup {
                 strong { "Celebration" }
                 " — The end of the hackathon."
                 @if matches!(current, Phase::Celebration) { (here) }
+            }
+        }
+    }
+}
+
+fn view_voting_help(config: &Config) -> Markup {
+    html! {
+        h2 { "Voting" }
+        p {
+            "Voting is now open. We are using "
+            em { "quadratic voting" } ". "
+            "It works as follows:"
+        }
+        ol {
+            li { "You get " (config.app.coins_to_spend) " " em { "coins" } "." }
+            li { "You can spend coins to give teams " em { "points" } "." }
+            li { "The cost in coins is the square of the points you award per team." }
+        }
+        p {
+            "This means that if you " em { "really" } " like one team, "
+            "you can spend all your coins on them, "
+            "but you can award more points in total "
+            "by distributing your votes across multiple teams. "
+            "For example, here are some ways to spend 50 coins, "
+            "with the points in bold and the cost in parentheses:"
+        }
+        ul {
+            li {
+                strong { "7" } " (49), "
+                strong { "1" } " (1)"
+            }
+            li {
+                strong { "6" } " (36), "
+                strong { "3" } " (9), "
+                strong { "2" } " (4), "
+                strong { "1" } " (1)"
+            }
+            li {
+                strong { "5" } " (25), "
+                strong { "5" } " (25)"
+            }
+            li {
+                strong { "4" } " (16), "
+                strong { "4" } " (16), "
+                strong { "4" } " (16), "
+                strong { "1" } " (1), "
+                strong { "1" } " (1)"
             }
         }
     }

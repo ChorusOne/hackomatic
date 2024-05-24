@@ -23,6 +23,9 @@ pub struct AppConfig {
 
     /// The maximum number of teams that a user can create.
     pub max_teams_per_creator: u32,
+
+    /// The number of coins that every user can spend on votes.
+    pub coins_to_spend: u32,
 }
 
 #[derive(Debug, Default, Deserialize)]
