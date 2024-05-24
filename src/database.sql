@@ -142,3 +142,15 @@ on conflict
 
 -- @query iter_cheaters() ->* str
 select cheater_email from cheaters;
+
+-- @query delete_votes_for_voter(voter_email: str)
+delete from
+  votes
+where
+  voter_email = :voter_email;
+
+-- @query insert_vote(voter_email: str, team_id: i64, points: i64)
+insert into
+  votes (voter_email, team_id, points)
+values
+  (:voter_email, :team_id, :points);

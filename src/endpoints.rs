@@ -166,6 +166,9 @@ fn view_index(
                             }
                         }
                     }
+                    // This is here as anchor so that after submit we are at the
+                    // end of the page.
+                    div #your-vote {}
                 }
                 script {
                     "const coinsToSpend = " (config.app.coins_to_spend) ";\n"
@@ -681,5 +684,13 @@ pub fn handle_vote(
         db::set_cheater(tx, &user.email)?;
     }
 
-    Ok(redirect_see_other(config.server.prefix.as_bytes()))
+    // Clear out any old votes, in case the user already voted previously.
+    db::delete_votes_for_voter(tx, &user.email)?;
+
+    for (team_id, points) in teams_points.iter() {
+        db::insert_vote(tx, &user.email, *team_id, *points)?;
+    }
+
+    let new_url = format!("{}#your-vote", config.server.prefix);
+    Ok(redirect_see_other(new_url.as_bytes()))
 }

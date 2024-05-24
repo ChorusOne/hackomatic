@@ -486,6 +486,53 @@ pub fn iter_cheaters<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter
     Ok(result)
 }
 
+pub fn delete_votes_for_voter(tx: &mut Transaction, voter_email: &str) -> Result<()> {
+    let sql = r#"
+        delete from
+          votes
+        where
+          voter_email = :voter_email;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, voter_email)?;
+    let result = match statement.next()? {
+        Row => panic!("Query 'delete_votes_for_voter' unexpectedly returned a row."),
+        Done => (),
+    };
+    Ok(result)
+}
+
+pub fn insert_vote(
+    tx: &mut Transaction,
+    voter_email: &str,
+    team_id: i64,
+    points: i64,
+) -> Result<()> {
+    let sql = r#"
+        insert into
+          votes (voter_email, team_id, points)
+        values
+          (:voter_email, :team_id, :points);
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, voter_email)?;
+    statement.bind(2, team_id)?;
+    statement.bind(3, points)?;
+    let result = match statement.next()? {
+        Row => panic!("Query 'insert_vote' unexpectedly returned a row."),
+        Done => (),
+    };
+    Ok(result)
+}
+
 // A useless main function, included only to make the example compile with
 // Cargo’s default settings for examples.
 #[allow(dead_code)]
