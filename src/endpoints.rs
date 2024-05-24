@@ -242,9 +242,9 @@ fn view_phase_admin_form(config: &Config) -> Markup {
     let submit_prev = format!("{}/prev", config.server.prefix);
     html! {
         form method="post" {
-            button type="submit" formaction=(submit_prev) { "Restore Previous Phase" }
+            button type="submit" formaction=(submit_prev) { "← Previous Phase" }
             " "
-            button type="submit" formaction=(submit_next) { "Start Next Phase" }
+            button type="submit" formaction=(submit_next) { "Next Phase →" }
         }
     }
 }
