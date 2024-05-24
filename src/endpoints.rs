@@ -183,6 +183,9 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
                     } @else {
                         input
                           name=(format!("team-{}", entry.team.id))
+                          type="number"
+                          min=(-(config.app.coins_to_spend as i32))
+                          max=(config.app.coins_to_spend)
                           value="0";
                     }
                 }
@@ -574,6 +577,16 @@ pub fn handle_phase_next(
     Ok(redirect_see_other(config.server.prefix.as_bytes()))
 }
 
+/// Sum the squares of the values in the hashmap without overflow.
+fn get_coins_spent<T>(points: &HashMap<T, i64>) -> Option<i64> {
+    let mut total: i64 = 0;
+    for p in points.values() {
+        let p2 = p.checked_mul(*p)?;
+        total = total.checked_add(p2)?;
+    }
+    Some(total)
+}
+
 pub fn handle_vote(
     config: &Config,
     tx: &mut db::Transaction,
@@ -591,11 +604,25 @@ pub fn handle_vote(
                     (Ok(team_id), Ok(points)) => {
                         teams_points.insert(team_id, points);
                     }
-                    _ => return Ok(bad_request("Invalid team id or points amount.")),
+                    (_, Err(..)) => return Ok(bad_request("You need to enter a number for every team.")),
+                    (Err(..), _) => return Ok(bad_request("Invalid team id.")),
                 }
             }
             None => return Ok(bad_request("Unexpected form field.")),
         }
+    }
+
+    // Verify that the user is not spending more coins than allowed.
+    let coins_spent = match get_coins_spent(&teams_points) {
+        Some(t) => t,
+        None => return Ok(bad_request("Overflowing an i64? Nice try, but no.")),
+    };
+    if coins_spent > config.app.coins_to_spend as i64 {
+        return Ok(bad_request(format!(
+            "You tried to spend {} coins, but you can spend at most {}.",
+            coins_spent,
+            config.app.coins_to_spend,
+        )));
     }
 
     Ok(redirect_see_other(config.server.prefix.as_bytes()))
