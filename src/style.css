@@ -8,7 +8,7 @@ html {
 
     --bg: #cdffac;
     --fg: #111;
-    --dp: #f3ffdf;
+    --dp: #f9ffee;
 
     background-color: var(--bg);
 }
@@ -185,6 +185,7 @@ h3 {
 h3 a {
     display: block;
     transform: skew(13deg);
+    color: var(--dp);
 }
 
 .team + .team, p + .team {
@@ -192,17 +193,16 @@ h3 a {
 }
 
 .team:target {
-    color: var(--fg-a2);
     position: relative;
 }
 
 .team:target h3 {
-    color: var(--dp);
 }
 
 .team:target h3::before {
     transform: skew(13deg);
     color: var(--fg);
+    font-style: normal;
     content: '»';
     display: block;
     position: absolute;
