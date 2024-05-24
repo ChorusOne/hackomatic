@@ -59,7 +59,7 @@ h2 {
     font-weight: 800;
 }
 
-ol, ul, ol + p {
+ol, ul, ol + p, ol + form {
     margin-top: 1rem;
 }
 
@@ -95,7 +95,7 @@ ol li strong {
     width: 6.2em;
 }
 
-form {
+details form {
     margin-top: 0.5rem;
 }
 
