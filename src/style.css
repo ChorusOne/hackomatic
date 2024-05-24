@@ -122,16 +122,37 @@ button:active {
     border-left-width: 3pt;
 }
 
+input:disabled {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 3pt,
+      color-mix(in srgb, var(--fg) 30%, transparent) 3pt,
+      color-mix(in srgb, var(--fg) 30%, transparent) 4.5pt
+    );
+}
+
 label {
     display: block;
     position: relative;
     height: 2.2rem;
 }
 
-label input {
+details label input {
     position: absolute;
     left: 12rem;
     width: calc(100% - 12rem);
+}
+
+.team label input {
+    margin-left: 0.5rem;
+    width: 1.5rem;
+    font-size: 0.9rem;
+    line-height: 1rem;
+}
+
+input.modified {
+    font-weight: 700;
 }
 
 h3 {

@@ -117,25 +117,54 @@ fn view_index(
                     }
                 }
             }
-            @for entry in teams {
-                // We give teams an anchor so we can refer to it from a
-                // redirect and even highlight after creation using CSS.
-                div .team id=(format!("team-{}", entry.team.id)) {
-                    h3 {
-                        a href=(format!("{}#team-{}", config.server.prefix, entry.team.id)) {
-                            (entry.team.name)
-                        }
+            @if matches!(phase, Phase::Evaluation) {
+                form {
+                    @for entry in teams {
+                        (view_team(config, user, phase, entry))
                     }
-                    p .description { (entry.team.description) }
-                    p .members {
-                        strong { "Members: " }
-                        @for (i, member) in entry.member_emails.iter().enumerate() {
-                            @if i > 0 { ", " }
-                            (view_email(config, member))
-                        }
-                    }
-                    @if matches!(phase, Phase::Registration) {
-                        (form_team_actions(config, user, entry.team.id, &entry.member_emails))
+                }
+            } @else {
+                @for entry in teams {
+                    (view_team(config, user, phase, entry))
+                }
+            }
+        }
+    }
+}
+
+fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> Markup {
+    html! {
+        // We give teams an anchor so we can refer to it from a
+        // redirect and even highlight after creation using CSS.
+        div .team id=(format!("team-{}", entry.team.id)) {
+            h3 {
+                a href=(format!("{}#team-{}", config.server.prefix, entry.team.id)) {
+                    (entry.team.name)
+                }
+            }
+            p .description { (entry.team.description) }
+            p .members {
+                strong { "Members: " }
+                @for (i, member) in entry.member_emails.iter().enumerate() {
+                    @if i > 0 { ", " }
+                    (view_email(config, member))
+                }
+            }
+            @if matches!(phase, Phase::Registration) {
+                (form_team_actions(config, user, entry.team.id, &entry.member_emails))
+            }
+            @if matches!(phase, Phase::Evaluation) {
+                label {
+                    "Your points: ";
+                    @if entry.member_emails.contains(&user.email) {
+                        input
+                            disabled
+                            value="0"
+                            title="You can’t vote for this team because you are a member.";
+                    } @else {
+                        input
+                          name=(format!("team-{}", entry.team.id))
+                          value="0";
                     }
                 }
             }
@@ -195,7 +224,7 @@ fn view_phases(current: Phase) -> Markup {
 
 fn view_voting_help(config: &Config) -> Markup {
     html! {
-        h2 { "Voting" }
+        h2 { "Voting System" }
         p {
             "Voting is now open. We are using "
             em { "quadratic voting" } ". "
