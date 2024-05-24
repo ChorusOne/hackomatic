@@ -1,4 +1,5 @@
 use std::str::FromStr;
+use std::collections::HashMap;
 
 use maud::{html, Markup, DOCTYPE};
 use tiny_http::Header;
@@ -570,5 +571,32 @@ pub fn handle_phase_next(
     }
     let current = crate::load_phase(tx)?;
     db::set_current_phase(tx, current.next().to_str())?;
+    Ok(redirect_see_other(config.server.prefix.as_bytes()))
+}
+
+pub fn handle_vote(
+    config: &Config,
+    tx: &mut db::Transaction,
+    user: &User,
+    body: String,
+) -> db::Result<Response> {
+    // Map team id to points. Would be nice to do a newtype wrapper for teams
+    // but I can't be bothered right now.
+    let mut teams_points: HashMap<i64, i64> = HashMap::new();
+
+    for (key, value) in form_urlencoded::parse(body.as_bytes()) {
+        match key.as_ref().strip_prefix("team-") {
+            Some(team_id_str) => {
+                match (i64::from_str(team_id_str), i64::from_str(value.as_ref())) {
+                    (Ok(team_id), Ok(points)) => {
+                        teams_points.insert(team_id, points);
+                    }
+                    _ => return Ok(bad_request("Invalid team id or points amount.")),
+                }
+            }
+            None => return Ok(bad_request("Unexpected form field.")),
+        }
+    }
+
     Ok(redirect_see_other(config.server.prefix.as_bytes()))
 }

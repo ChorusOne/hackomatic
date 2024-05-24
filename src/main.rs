@@ -189,6 +189,7 @@ fn handle_request_impl(
             "/delete-team" => endpoints::handle_delete_team(config, tx, &user, body),
             "/leave-team" => endpoints::handle_leave_team(config, tx, &user, body),
             "/join-team" => endpoints::handle_join_team(config, tx, &user, body),
+            "/vote" => endpoints::handle_vote(config, tx, &user, body),
             "/prev" => endpoints::handle_phase_prev(config, tx, &user),
             "/next" => endpoints::handle_phase_next(config, tx, &user),
             _ => Ok(not_found),
