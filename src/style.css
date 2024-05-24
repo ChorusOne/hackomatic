@@ -207,3 +207,25 @@ h3 a {
 .team p {
     margin-bottom: 0.5rem;
 }
+
+.score-float {
+    position: sticky;
+    bottom: -6.8em;
+    background-color: var(--bg);
+    border-top: 1.5pt solid var(--fg);
+    margin-top: 2.5rem;
+    padding-bottom: 2rem;
+    margin-bottom: -2rem;
+    margin-left: -2rem;
+    margin-right: -2rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+footer {
+    margin-top: 3em;
+}
+
+footer button + p {
+    margin-top: 1em;
+}

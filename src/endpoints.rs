@@ -118,11 +118,29 @@ fn view_index(
                 }
             }
             @if matches!(phase, Phase::Evaluation) {
-                form {
+                form action=(format!("{}/vote", config.server.prefix)) method="post" {
                     @for entry in teams {
                         (view_team(config, user, phase, entry))
                     }
+                    div .score-float {
+                        h2 { "Your Vote" }
+                        p {
+                            "You have "
+                            span #coins-left {
+                                (config.app.coins_to_spend) " coins"
+                            }
+                            " left to spend."
+                        }
+                        footer {
+                            button type="submit" { "Submit Vote" }
+                            p {
+                                "You can still change your vote after you submit, "
+                                "as long as voting is still open."
+                            }
+                        }
+                    }
                 }
+
             } @else {
                 @for entry in teams {
                     (view_team(config, user, phase, entry))
