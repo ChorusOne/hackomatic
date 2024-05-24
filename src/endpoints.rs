@@ -7,6 +7,11 @@ use crate::config::Config;
 use crate::database as db;
 use crate::{Phase, Response, User};
 
+struct TeamEntry {
+    team: db::Team,
+    member_emails: Vec<String>,
+}
+
 fn respond_html(markup: Markup) -> Response {
     Response::from_string(markup.into_string()).with_header(
         Header::from_bytes(&b"Content-Type"[..], &b"text/html; charset=utf-8"[..]).unwrap(),
@@ -85,7 +90,7 @@ fn view_index(
     config: &Config,
     user: &User,
     phase: Phase,
-    teams: &[(db::Team, Vec<String>)],
+    teams: &[TeamEntry],
 ) -> Markup {
     html! {
         (view_html_head("Hack-o-matic"))
@@ -112,25 +117,25 @@ fn view_index(
                     }
                 }
             }
-            @for team in teams {
+            @for entry in teams {
                 // We give teams an anchor so we can refer to it from a
                 // redirect and even highlight after creation using CSS.
-                div .team id=(format!("team-{}", team.0.id)) {
+                div .team id=(format!("team-{}", entry.team.id)) {
                     h3 {
-                        a href=(format!("{}#team-{}", config.server.prefix, team.0.id)) {
-                            (team.0.name)
+                        a href=(format!("{}#team-{}", config.server.prefix, entry.team.id)) {
+                            (entry.team.name)
                         }
                     }
-                    p .description { (team.0.description) }
+                    p .description { (entry.team.description) }
                     p .members {
                         strong { "Members: " }
-                        @for (i, member) in team.1.iter().enumerate() {
+                        @for (i, member) in entry.member_emails.iter().enumerate() {
                             @if i > 0 { ", " }
                             (view_email(config, member))
                         }
                     }
                     @if matches!(phase, Phase::Registration) {
-                        (form_team_actions(config, user, team.0.id, &team.1))
+                        (form_team_actions(config, user, entry.team.id, &entry.member_emails))
                     }
                 }
             }
@@ -281,13 +286,17 @@ pub fn handle_index(
 ) -> db::Result<Response> {
     let phase = crate::load_phase(tx)?;
     let teams = db::iter_teams(tx)?.collect::<Result<Vec<_>, _>>()?;
-    let mut teams_with_members = Vec::with_capacity(teams.len());
+    let mut team_entries = Vec::with_capacity(teams.len());
     for team in teams {
         let members = db::iter_team_members(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
-        teams_with_members.push((team, members));
+        let entry = TeamEntry {
+            team,
+            member_emails: members,
+        };
+        team_entries.push(entry);
     }
 
-    let body = view_index(config, &user, phase, &teams_with_members);
+    let body = view_index(config, &user, phase, &team_entries);
     Ok(respond_html(body))
 }
 
