@@ -12,4 +12,4 @@ max_teams_per_creator = 3
 coins_to_spend = 50
 
 [debug]
-unsafe_default_email = "user@example.com"
+unsafe_default_email = "admin@example.com"

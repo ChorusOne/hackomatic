@@ -8,7 +8,7 @@ html {
 
     --bg: #cdffac;
     --fg: #111;
-    --dp: #fff;
+    --dp: #f3ffdf;
 
     background-color: var(--bg);
 }
@@ -108,6 +108,7 @@ input, button {
     color: var(--fg);
     border: 2pt solid var(--fg);
     border-radius: 3pt;
+    background-color: var(--dp);
 }
 
 button {
@@ -125,10 +126,10 @@ button:enabled:active {
 input:disabled, button:disabled {
     background: repeating-linear-gradient(
       -45deg,
-      transparent,
-      transparent 3pt,
-      color-mix(in srgb, var(--fg) 30%, transparent) 3pt,
-      color-mix(in srgb, var(--fg) 30%, transparent) 4.5pt
+      var(--dp),
+      var(--dp) 3pt,
+      color-mix(in srgb, var(--fg) 20%, var(--dp)) 3pt,
+      color-mix(in srgb, var(--fg) 20%, var(--dp)) 4.5pt
     );
 }
 
