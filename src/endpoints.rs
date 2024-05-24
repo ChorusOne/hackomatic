@@ -90,7 +90,7 @@ fn get_vote_script() -> Markup {
 
 #[cfg(not(debug_assertions))]
 fn get_vote_script() -> Markup {
-    maud::PreEscaped(include_str!("vote.js"))
+    maud::PreEscaped(include_str!("vote.js").to_string())
 }
 
 fn view_email<'a>(config: &Config, email: &'a str) -> &'a str {
