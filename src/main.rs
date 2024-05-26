@@ -2,11 +2,13 @@ use std::io::Cursor;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Instant;
 
 use tiny_http::{HeaderField, Method, Request, Server};
 
 use config::Config;
 use database as db;
+use endpoints::{internal_error, not_found, service_unavailable};
 
 mod config;
 mod database;
@@ -100,6 +102,7 @@ fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connecti
     // Change the database to WAL mode if it wasn't already. Set the busy
     // timeout to 30 milliseconds, so readers and writers can wait for each
     // other a little bit. We also have a retry loop around the request handler.
+    raw_connection.execute("PRAGMA locking_mode = NORMAL;")?;
     raw_connection.execute("PRAGMA busy_timeout = 30;")?;
     raw_connection.execute("PRAGMA journal_mode = WAL;")?;
     raw_connection.execute("PRAGMA foreign_keys = TRUE;")?;
@@ -108,27 +111,6 @@ fn init_database(raw_connection: &sqlite::Connection) -> db::Result<db::Connecti
     db::ensure_schema_exists(&mut tx)?;
     tx.commit()?;
     Ok(connection)
-}
-
-fn handle_request(
-    config: &Config,
-    connection: &mut db::Connection,
-    request: &mut Request,
-) -> db::Result<Response> {
-    let mut tx = connection.begin()?;
-    let response = handle_request_impl(config, &mut tx, request)?;
-
-    // Commit on success responses (we assume redirects to be success as well,
-    // for example for use after submitting a form). If we encounter any error,
-    // roll back. We do this here because handlers cannot call `tx.rollback()`,
-    // because it consumes the transaction.
-    if response.status_code().0 < 400 {
-        tx.commit()?;
-    } else {
-        tx.rollback()?;
-    }
-
-    Ok(response)
 }
 
 pub struct User {
@@ -152,10 +134,11 @@ impl User {
     }
 }
 
-fn handle_request_impl(
+fn handle_request(
     config: &Config,
-    tx: &mut db::Transaction,
+    connection: &mut db::Connection,
     request: &mut Request,
+    log_line: &mut String,
 ) -> db::Result<Response> {
     // Figure out who the user is. In debug mode we fall back to a default.
     let header_x_email = HeaderField::from_str("X-Email").unwrap();
@@ -180,76 +163,120 @@ fn handle_request_impl(
         },
     };
 
-    println!("{:4?} {} {}", request.method(), request.url(), email);
+    *log_line = format!("{:4?} {} {}", request.method(), request.url(), email);
 
     let user = User {
         is_admin: email == config.app.admin_email,
         email,
     };
 
-    let not_found = Response::from_string("Not found.").with_status_code(404);
     let url_inner = match request.url().strip_prefix(&config.server.prefix) {
         Some(url) => url.to_string(),
-        None => return Ok(not_found),
+        None => return Ok(not_found(format!("Not found, try {}", config.server.prefix))),
     };
 
+    // For post requests, read the body. We need to do this once. The handler
+    // may be retried, but the body we can only consume once.
+    let mut body = String::new();
     if request.method() == &Method::Post {
         // Read the body, ignore any IO errors there. In most cases this is
         // probably fine and we'll fail elsewhere, but it might happen that
-        // we read a truncated body and fail half-way. TODO: Handle properly.
-        let mut body = String::new();
-        let _ = request.as_reader().read_to_string(&mut body);
-
-        match url_inner.as_ref() {
-            "/create-team" => endpoints::handle_create_team(config, tx, &user, body),
-            "/delete-team" => endpoints::handle_delete_team(config, tx, &user, body),
-            "/leave-team" => endpoints::handle_leave_team(config, tx, &user, body),
-            "/join-team" => endpoints::handle_join_team(config, tx, &user, body),
-            "/vote" => endpoints::handle_vote(config, tx, &user, body),
-            "/prev" => endpoints::handle_phase_prev(config, tx, &user),
-            "/next" => endpoints::handle_phase_next(config, tx, &user),
-            _ => Ok(not_found),
-        }
-    } else {
-        // Assume everything else is a GET request.
-        match url_inner.as_ref() {
-            "" | "/" => endpoints::handle_index(config, tx, &user),
-            _ => Ok(not_found),
+        // we read a truncated body and fail half-way.
+        if let Err(_) = request.as_reader().read_to_string(&mut body) {
+            return Ok(internal_error("Failed to read full request body."));
         }
     }
+
+    with_transaction(connection, |tx| {
+        if request.method() == &Method::Post {
+            match url_inner.as_ref() {
+                "/create-team" => endpoints::handle_create_team(config, tx, &user, &body),
+                "/delete-team" => endpoints::handle_delete_team(config, tx, &user, &body),
+                "/leave-team" => endpoints::handle_leave_team(config, tx, &user, &body),
+                "/join-team" => endpoints::handle_join_team(config, tx, &user, &body),
+                "/vote" => endpoints::handle_vote(config, tx, &user, &body),
+                "/prev" => endpoints::handle_phase_prev(config, tx, &user),
+                "/next" => endpoints::handle_phase_next(config, tx, &user),
+                _ => Ok(not_found("Not found.")),
+            }
+        } else {
+            // Assume everything else is a GET request.
+            match url_inner.as_ref() {
+                "" | "/" => endpoints::handle_index(config, tx, &user),
+                _ => Ok(not_found("Not found.")),
+            }
+        }
+    })
+}
+
+/// Run `f` in a transaction, retrying a few times if the database is busy.
+///
+/// SQLite does not support concurrent writes, but we do spawn multiple server
+/// threads. It might happen that one of them encounters a concurrency error and
+/// needs to restart the transaction, try that a few times before finally gving up.
+fn with_transaction<F>(connection: &mut db::Connection, mut f: F) -> db::Result<Response>
+where F: FnMut(&mut db::Transaction) -> db::Result<Response>
+{
+    for attempt in 0.. {
+        let mut tx = connection.begin()?;
+        match f(&mut tx) {
+            Ok(response) => {
+                // Commit on success responses (we assume redirects to be success
+                // as well, for example for use after submitting a form). If we
+                // encounter any error, roll back. We do this here because
+                // handlers cannot call `tx.rollback()`, because it consumes the
+                // transaction.
+                if response.status_code().0 < 400 {
+                    tx.commit()?;
+                } else {
+                    tx.rollback()?;
+                }
+                return Ok(response);
+            }
+            Err(err) if err.code == Some(5) => {
+                tx.rollback()?;
+                println!("Database is locked (attempt {}): {err:?}", attempt + 1);
+                // The database is locked by a writer. Retry if we haven't
+                // retried too many times already.
+                if attempt + 1 < 6 {
+                    continue;
+                } else {
+                    return Ok(service_unavailable(
+                        "The database is busy, wait a few seconds and try again.",
+                    ));
+                }
+            }
+            Err(err) => {
+                // Try to roll back, but if it doesn't work, we are going to
+                // open a new connection anyway.
+                let _ = tx.rollback();
+                return Err(err);
+            }
+        }
+    }
+    unreachable!("The number of continuations is bounded.");
 }
 
 fn serve_until_error(config: &Config, connection: &mut db::Connection, server: &Server) {
     loop {
         let mut fatal_error = None;
         let mut request = server.recv().unwrap();
+        let start_time = Instant::now();
 
-        // SQLite does not support concurrent writes, but we do spawn multiple
-        // server threads. It might happen that one of them encounters a
-        // concurrency error and needs to restart the transaction, try that a
-        // few times before finally gving up.
-        let mut response =
-            Response::from_string("Database is too busy".to_string()).with_status_code(503);
-        for _attempt in 0..6 {
-            match handle_request(config, connection, &mut request) {
-                Ok(resp) => {
-                    response = resp;
-                    break;
-                }
-                Err(err) if err.code == Some(5) => {
-                    // The database is locked by a writer. Retry.
-                    continue;
-                }
-                Err(err) => {
-                    // Some unrecoverable error happened.
-                    println!("Error handling request: {err:?}");
-                    response = Response::from_string("Internal server error".to_string())
-                        .with_status_code(500);
-                    fatal_error = Some(err);
-                    break;
-                }
+        let mut log_line = "Unparsed request".to_string();
+        let response = match handle_request(config, connection, &mut request, &mut log_line) {
+            Ok(resp) => {
+                println!("{log_line} -> {} [{:.3} ms]", resp.status_code().0, (start_time.elapsed().as_micros() as f32) * 1e-3);
+                resp
+            },
+            Err(err) => {
+                // Some unrecoverable error happened.
+                println!("{log_line} -> Error: {err:?}");
+                fatal_error = Some(err);
+                internal_error("Internal server error.")
             }
-        }
+        };
+
         if let Err(err) = request.respond(response) {
             println!("Error writing response: {err:?}");
         }
@@ -267,6 +294,15 @@ fn main() {
     let server = Arc::new(Server::http(&config.server.listen).unwrap());
     let mut guards = Vec::with_capacity(n_threads);
     let init_mutex = Arc::new(Mutex::new(()));
+
+    // In theory everything should work with more server threads. And it does,
+    // with 2 or 3, but with 4 or more threads, requests frequently get error 5
+    // "database is locked" from SQLite. Printf debugging shows that all
+    // transactions that get started also commit. But still, something is
+    // holding on to the write lock? What's also really strange, it happens
+    // frequently for 4 threads (~1 in 3 requests), while I haven't been able to
+    // reproduce at all with 3 threads. But just to be sure, just do one.
+    assert_eq!(n_threads, 1, "Currently only 1 thread works well.");
 
     for _ in 0..n_threads {
         let server = server.clone();

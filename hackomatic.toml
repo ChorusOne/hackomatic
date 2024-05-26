@@ -1,7 +1,7 @@
 [server]
 listen = "127.0.0.1:5591"
 prefix = "/hack"
-num_threads = 4
+num_threads = 1
 
 [database]
 path = "hackomatic.sqlite3"

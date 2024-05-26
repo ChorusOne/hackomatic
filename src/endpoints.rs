@@ -52,12 +52,24 @@ fn bad_request<R: Into<String>>(reason: R) -> Response {
     respond_error(reason).with_status_code(400)
 }
 
+pub fn not_found<R: Into<String>>(reason: R) -> Response {
+    respond_error(reason).with_status_code(404)
+}
+
 fn conflict<R: Into<String>>(reason: R) -> Response {
     respond_error(reason).with_status_code(409)
 }
 
 fn forbidden<R: Into<String>>(reason: R) -> Response {
     respond_error(reason).with_status_code(403)
+}
+
+pub fn internal_error<R: Into<String>>(reason: R) -> Response {
+    respond_error(reason).with_status_code(500)
+}
+
+pub fn service_unavailable<R: Into<String>>(reason: R) -> Response {
+    respond_error(reason).with_status_code(503)
 }
 
 fn redirect_see_other<R: AsRef<[u8]>>(location: R) -> Response {
@@ -630,7 +642,7 @@ pub fn handle_create_team(
     config: &Config,
     tx: &mut db::Transaction,
     user: &User,
-    body: String,
+    body: &str,
 ) -> db::Result<Response> {
     let mut team_name = String::new();
     let mut description = String::new();
@@ -678,7 +690,7 @@ pub fn handle_create_team(
     Ok(redirect_see_other(new_url.as_bytes()))
 }
 
-fn get_body_team_id(body: String) -> Result<i64, Response> {
+fn get_body_team_id(body: &str) -> Result<i64, Response> {
     let mut team_id = 0_i64;
 
     for (key, value) in form_urlencoded::parse(body.as_bytes()) {
@@ -702,21 +714,24 @@ pub fn handle_delete_team(
     config: &Config,
     tx: &mut db::Transaction,
     user: &User,
-    body: String,
+    body: &str,
 ) -> db::Result<Response> {
     let team_id = match get_body_team_id(body) {
         Ok(id) => id,
         Err(err_response) => return Ok(err_response),
     };
 
+    println!("Before remove.");
     // Remove ourselves from the team first.
     db::remove_team_member(tx, team_id, &user.email)?;
+    println!("After remove.");
 
     // Confirm that the team is now empty.
     for _member in db::iter_team_members(tx, team_id)? {
         // Returning an error status code will also roll back the transaction.
         return Ok(conflict("The team is not empty, we can't delete it yet."));
     }
+    println!("Before delete.");
 
     db::delete_team(tx, team_id)?;
 
@@ -727,7 +742,7 @@ pub fn handle_leave_team(
     config: &Config,
     tx: &mut db::Transaction,
     user: &User,
-    body: String,
+    body: &str,
 ) -> db::Result<Response> {
     let team_id = match get_body_team_id(body) {
         Ok(id) => id,
@@ -757,7 +772,7 @@ pub fn handle_join_team(
     config: &Config,
     tx: &mut db::Transaction,
     user: &User,
-    body: String,
+    body: &str,
 ) -> db::Result<Response> {
     let team_id = match get_body_team_id(body) {
         Ok(id) => id,
@@ -819,7 +834,7 @@ pub fn handle_vote(
     config: &Config,
     tx: &mut db::Transaction,
     user: &User,
-    body: String,
+    body: &str,
 ) -> db::Result<Response> {
     // Map team id to points. Would be nice to do a newtype wrapper for teams
     // but I can't be bothered right now.
