@@ -172,7 +172,12 @@ fn handle_request(
 
     let url_inner = match request.url().strip_prefix(&config.server.prefix) {
         Some(url) => url.to_string(),
-        None => return Ok(not_found(format!("Not found, try {}", config.server.prefix))),
+        None => {
+            return Ok(not_found(format!(
+                "Not found, try {}",
+                config.server.prefix
+            )))
+        }
     };
 
     // For post requests, read the body. We need to do this once. The handler
@@ -215,7 +220,8 @@ fn handle_request(
 /// threads. It might happen that one of them encounters a concurrency error and
 /// needs to restart the transaction, try that a few times before finally gving up.
 fn with_transaction<F>(connection: &mut db::Connection, mut f: F) -> db::Result<Response>
-where F: FnMut(&mut db::Transaction) -> db::Result<Response>
+where
+    F: FnMut(&mut db::Transaction) -> db::Result<Response>,
 {
     for attempt in 0.. {
         let mut tx = connection.begin()?;
@@ -266,9 +272,13 @@ fn serve_until_error(config: &Config, connection: &mut db::Connection, server: &
         let mut log_line = "Unparsed request".to_string();
         let response = match handle_request(config, connection, &mut request, &mut log_line) {
             Ok(resp) => {
-                println!("{log_line} -> {} [{:.3} ms]", resp.status_code().0, (start_time.elapsed().as_micros() as f32) * 1e-3);
+                println!(
+                    "{log_line} -> {} [{:.3} ms]",
+                    resp.status_code().0,
+                    (start_time.elapsed().as_micros() as f32) * 1e-3
+                );
                 resp
-            },
+            }
             Err(err) => {
                 // Some unrecoverable error happened.
                 println!("{log_line} -> Error: {err:?}");
