@@ -14,7 +14,7 @@ mod endpoints;
 
 type Response = tiny_http::Response<Cursor<Vec<u8>>>;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum Phase {
     Registration,
     Presentation,

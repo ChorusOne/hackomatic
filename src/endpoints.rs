@@ -148,7 +148,7 @@ fn view_index(config: &Config, user: &User, data: IndexData) -> Markup {
             }
             (view_phases(data.phase))
             @if user.is_admin {
-                (view_phase_admin_form(config))
+                (view_phase_admin_form(config, data.phase))
             }
             @if matches!(data.phase, Phase::Evaluation | Phase::Revelation | Phase::Celebration) {
                 h2 { "Voting Turnout" }
@@ -332,14 +332,24 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
     }
 }
 
-fn view_phase_admin_form(config: &Config) -> Markup {
+fn view_phase_admin_form(config: &Config, phase: Phase) -> Markup {
     let submit_next = format!("{}/next", config.server.prefix);
     let submit_prev = format!("{}/prev", config.server.prefix);
+    let can_next = phase.next() != phase;
+    let can_prev = phase.prev() != phase;
     html! {
         form method="post" {
-            button type="submit" formaction=(submit_prev) { "← Previous Phase" }
+            button
+                type="submit"
+                formaction=(submit_prev)
+                disabled[!can_prev]
+            { "← Previous Phase" }
             " "
-            button type="submit" formaction=(submit_next) { "Next Phase →" }
+            button
+                type="submit"
+                formaction=(submit_next)
+                disabled[!can_next]
+            { "Next Phase →" }
         }
     }
 }
