@@ -164,7 +164,8 @@ from
 where
   team_id = :team_id
 order by
-  points desc;
+  points desc,
+  voter_email asc;
 
 -- Return how many points the voter gave to the given team.
 -- @query get_team_vote_for(team_id: i64, voter_email: str) ->? i64

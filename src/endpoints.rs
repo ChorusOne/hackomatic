@@ -249,6 +249,10 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
         TeamData::UserVote { points } => points,
         _ => 0,
     };
+    let supporters = match &entry.data {
+        TeamData::AllVotes { votes } => Some(&votes[..]),
+        _ => None,
+    };
 
     html! {
         // We give teams an anchor so we can refer to it from a
@@ -260,11 +264,22 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
                 }
             }
             p .description { (entry.team.description) }
-            p .members {
+            p {
                 strong { "Members: " }
                 @for (i, member) in entry.member_emails.iter().enumerate() {
                     @if i > 0 { ", " }
                     (view_email(config, member))
+                }
+                @if let Some(supporters) = supporters {
+                    @if !supporters.is_empty() {
+                        br;
+                        strong { "Supporters: " }
+                        @for (i, vote) in supporters.iter().enumerate() {
+                            @if i > 0 { ", " }
+                            (view_email(config, &vote.voter_email))
+                            " (" (vote.points) ")"
+                        }
+                    }
                 }
             }
             @if matches!(phase, Phase::Registration) {
