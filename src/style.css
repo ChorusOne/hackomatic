@@ -216,11 +216,11 @@ h3 a {
 
 .score-float {
     position: sticky;
-    bottom: -6.8em;
+    bottom: 0;
     background-color: var(--bg);
     border-top: 1.5pt solid var(--fg);
     margin-top: 2.5rem;
-    padding-bottom: 2rem;
+    padding-bottom: 3rem;
     margin-bottom: -2rem;
     margin-left: -2rem;
     margin-right: -2rem;
@@ -229,7 +229,7 @@ h3 a {
 }
 
 footer {
-    margin-top: 3em;
+    margin-top: 2em;
 }
 
 footer button + p {

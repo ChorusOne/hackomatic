@@ -31,7 +31,15 @@ function validate() {
 
 function initialize() {
     for (const inputBox of inputBoxes) {
-        inputBox.addEventListener("input", (event) => validate());
+        inputBox.addEventListener("input", (event) => {
+            validate();
+            voteMessage.innerText = (
+                "You have unsaved changes. " +
+                "Click the button above to submit. " +
+                "You can still change your vote after you submit, " +
+                "as long as voting is open."
+            );
+        });
     }
     validate();
 }

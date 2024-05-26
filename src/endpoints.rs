@@ -117,6 +117,19 @@ fn view_index(
     teams: &[TeamEntry],
     cheaters: &[String],
 ) -> Markup {
+    // During the vote phase, we tweak the message depending on whether the user
+    // has voted or not, so we need to know if they have any.
+    let mut did_vote = false;
+    for team in teams {
+        match team.data {
+            TeamData::UserVote { points } if points != 0 => {
+                did_vote = true;
+                break;
+            }
+            _ => continue,
+        }
+    }
+
     html! {
         (view_html_head("Hack-o-matic"))
         body {
@@ -168,11 +181,17 @@ fn view_index(
                             }
                             " left to spend."
                         }
-                        footer {
-                            button type="submit" #submit-vote { "Submit Vote" }
-                            p {
+                    }
+                    footer {
+                        button type="submit" #submit-vote { "Submit Vote" }
+                        p #voteMessage {
+                            @if did_vote {
+                                "Your vote has been recorded. "
+                                "You can still change it as long as voting is open."
+                            } @else {
+                                "You have not voted yet. "
                                 "You can still change your vote after you submit, "
-                                "as long as voting is still open."
+                                "as long as voting is open."
                             }
                         }
                     }
