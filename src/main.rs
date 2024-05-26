@@ -283,7 +283,10 @@ fn main() {
         guards.push(guard);
     }
 
-    println!("Listening on http://{}/ ...", config.server.listen);
+    println!(
+        "Serving on http://{}{} ...",
+        config.server.listen, config.server.prefix
+    );
 
     for guard in guards.drain(..) {
         guard.join().unwrap();
