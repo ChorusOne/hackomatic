@@ -688,6 +688,11 @@ pub fn handle_vote(
     db::delete_votes_for_voter(tx, &user.email)?;
 
     for (team_id, points) in teams_points.iter() {
+        if *points == 0 {
+            // No need to pollute the database with zero votes that don't do
+            // anything.
+            continue;
+        }
         db::insert_vote(tx, &user.email, *team_id, *points)?;
     }
 
