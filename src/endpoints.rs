@@ -864,8 +864,8 @@ pub fn handle_vote(
                 "While the math works fine if we allow awarding negative points, \
                 are you really that kind of person who chooses to spend their coins \
                 on destroying somebody else’s reputation, \
-                rather than just voting for a different team?"
-            ))
+                rather than just voting for a different team?",
+            ));
         }
         db::insert_vote(tx, &user.email, *team_id, *points)?;
     }
