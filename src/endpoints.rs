@@ -729,13 +729,13 @@ pub fn handle_vote(
         )));
     }
 
-    // If the user tries to vote for a team that they're a member of, make the
-    // vote negative and add them to the hall of shame.
+    // If the user tries to vote for a team that they're a member of, reset back
+    // to zero and add them to the hall of shame.
     let mut did_cheat = false;
     for team_id_opt in db::iter_member_teams(tx, &user.email)? {
         if let Some(p) = teams_points.get_mut(&team_id_opt?) {
-            if *p > 0 {
-                *p = -*p;
+            if *p != 0 {
+                *p = 0;
                 did_cheat = true;
             }
         }
