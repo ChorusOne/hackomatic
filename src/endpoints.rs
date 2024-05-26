@@ -179,7 +179,12 @@ fn view_index(
                             span #coins-left {
                                 (config.app.coins_to_spend) " coins"
                             }
-                            " left to spend."
+                            " left to spend. "
+                            noscript {
+                                "If you enable Javascript, "
+                                "this number updates as you edit your vote, "
+                                "but now it only shows the total you can spend."
+                            }
                         }
                     }
                     footer {
