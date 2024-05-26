@@ -47,6 +47,9 @@ pub struct ServerConfig {
     ///
     /// E.g. `/hack-o-matic`.
     pub prefix: String,
+
+    /// The number of http handler threads to start.
+    pub num_threads: u32,
 }
 
 #[derive(Debug, Deserialize)]

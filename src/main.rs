@@ -263,7 +263,7 @@ fn serve_until_error(config: &Config, connection: &mut db::Connection, server: &
 fn main() {
     let config = Arc::new(load_config());
 
-    let n_threads = 1;
+    let n_threads = config.server.num_threads as usize;
     let server = Arc::new(Server::http(&config.server.listen).unwrap());
     let mut guards = Vec::with_capacity(n_threads);
     let init_mutex = Arc::new(Mutex::new(()));
