@@ -25,6 +25,8 @@ struct TeamEntry {
     team: db::Team,
     member_emails: Vec<String>,
     data: TeamData,
+    total_points: i64,
+    rank: u32,
 }
 
 fn respond_html(markup: Markup) -> Response {
@@ -461,6 +463,7 @@ pub fn handle_index(
     let mut team_entries = Vec::with_capacity(teams.len());
 
     for team in teams {
+        let mut total_points = 0;
         let members = db::iter_team_members(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
         let data = match phase {
             Phase::Registration | Phase::Presentation => TeamData::None,
@@ -471,11 +474,11 @@ pub fn handle_index(
                 }
             }
             Phase::Revelation | Phase::Celebration => {
-                // In the revelation phase, only the admin gets to see the
-                // totals so that people can't run ahead and check who won
-                // during the ceremony.
-                if matches!(phase, Phase::Celebration) || user.is_admin {
+                if user.can_see_outcome(phase) {
                     let votes = db::iter_team_votes(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
+                    // The votes have been validated, so this should not
+                    // overflow unless we have a crazy number of voters.
+                    total_points = votes.iter().map(|v| v.points).sum();
                     TeamData::AllVotes { votes: votes }
                 } else {
                     TeamData::None
@@ -486,9 +489,37 @@ pub fn handle_index(
         let entry = TeamEntry {
             team,
             data,
+            total_points,
             member_emails: members,
+            rank: 0,
         };
         team_entries.push(entry);
+    }
+
+    // If we are displaying points, sort and compute the rank.
+    if user.can_see_outcome(phase) {
+        team_entries.sort_by_key(|entry| (-entry.total_points, entry.team.id));
+        let mut rank = 0;
+        let mut prev_points = -1;
+        for entry in team_entries.iter_mut() {
+            // Teams that have the same number of points have the same rank.
+            // I briefly considered breaking ties by the number of voters, but
+            // that would kind of defeat the purpose of quadratic voting, so
+            // let's keep it at points only.
+            if entry.total_points != prev_points {
+                rank += 1;
+                prev_points = entry.total_points;
+            }
+            entry.rank = rank;
+        }
+
+        // Normally you want to see the teams from first to last. But during the
+        // revelation ceremony, when the admin loads the page, it is very
+        // convenient if the lowest ranked teams are at the top, then you can
+        // just scroll down to reveal the next team.
+        if matches!(phase, Phase::Revelation) {
+            team_entries.reverse();
+        }
     }
 
     let cheaters = db::iter_cheaters(tx)?.collect::<Result<Vec<_>, _>>()?;

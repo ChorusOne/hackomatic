@@ -136,6 +136,22 @@ pub struct User {
     is_admin: bool,
 }
 
+impl User {
+    /// Whether to display the outcome of the vote to the user.
+    ///
+    /// In the revelation phase, only the admin gets to see the
+    /// totals so that people can't run ahead and check who won
+    /// during the ceremony. But afterwards, everybody can check
+    /// at their own pace.
+    fn can_see_outcome(&self, phase: Phase) -> bool {
+        match phase {
+            Phase::Revelation => self.is_admin,
+            Phase::Celebration => true,
+            _ => false,
+        }
+    }
+}
+
 fn handle_request_impl(
     config: &Config,
     tx: &mut db::Transaction,
