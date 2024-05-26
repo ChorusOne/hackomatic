@@ -157,6 +157,12 @@ fn view_index(config: &Config, user: &User, data: IndexData) -> Markup {
                         n => { (n) " people have cast their vote." },
                     }
                 }
+            }
+            @if matches!(data.phase, Phase::Revelation | Phase::Celebration) {
+                // Display the cheaters only after the vote ends. That way
+                // people are not immediately discouraged from cheating during
+                // the vote when the first person tries to do it. I'm curious to
+                // catch all the people who would try.
                 @if !data.cheaters.is_empty() {
                     h2 { "Hall of Shame" }
                     p { "The following people tried to cheat and vote for themselves:" }
