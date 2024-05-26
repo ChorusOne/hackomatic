@@ -260,6 +260,20 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
         // We give teams an anchor so we can refer to it from a
         // redirect and even highlight after creation using CSS.
         div .team id=(format!("team-{}", entry.team.id)) {
+            @if matches!(&entry.data, TeamData::AllVotes { .. }) {
+                div .outcome-outer {
+                    div .outcome {
+                        div .rank { (entry.rank) }
+                        div .points {
+                            @match entry.total_points {
+                                0 => "0 points",
+                                1 => "1 point",
+                                n => { (n) " points" },
+                            }
+                        }
+                    }
+                }
+            }
             h3 {
                 a href=(format!("{}#team-{}", config.server.prefix, entry.team.id)) {
                     (entry.team.name)
@@ -277,7 +291,7 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
                         br;
                         strong { "Supporters: " }
                         @for (i, vote) in supporters.iter().enumerate() {
-                            @if i > 0 { ", " }
+                            @if i > 0 { ",\u{2002}" }
                             (view_email(config, &vote.voter_email))
                             " (" (vote.points) ")"
                         }

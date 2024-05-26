@@ -22,7 +22,7 @@ html {
 }
 
 body {
-    font-family: 'Atkinson Hyperlegible';
+    font-family: 'Atkinson Hyperlegible', sans-serif;
     line-height: 1.6em;
     max-width: 40em;
     margin-top: 4em;
@@ -34,8 +34,8 @@ body {
     color: var(--fg);
 }
 
-h1, h2, h3 {
-    font-family: 'Work Sans';
+h1, h2, h3, .outcome .rank {
+    font-family: 'Work Sans', 'Atkinson Hyperlegible', sans-serif;
 }
 
 a {
@@ -187,6 +187,15 @@ h3 a {
     display: block;
     transform: skew(13deg);
     color: var(--dp);
+
+    /* In extreme conditions, when the title is long and the viewport narrow,
+     * the text can stick out of the slanted background. To keep it readable,
+     * add an outline (faked with drop shadows). */
+    text-shadow:
+      1pt 1pt var(--fg),
+      -1pt 1pt var(--fg),
+      -1pt -1pt var(--fg),
+      1pt -1pt var(--fg);
 }
 
 .team + .team, p + .team {
@@ -234,4 +243,63 @@ footer {
 
 footer button + p {
     margin-top: 1em;
+}
+
+.outcome-outer {
+    float: right;
+    margin-left: 2rem;
+}
+
+.outcome {
+    float: right;
+    text-align: center;
+}
+
+@media(max-width: 1000px) {
+    /* For long titles that wrap, allow some space for the score badge to float. */
+    h3 {
+        max-width: calc(100% - 9rem);
+    }
+}
+
+@media(min-width: 1000px) {
+    .team {
+        position: relative;
+    }
+    .outcome-outer {
+        width: 8rem;
+        margin-left: 0;
+        left: -10.5rem;
+        top: -0.2rem;
+        position: absolute;
+    }
+}
+
+.outcome .rank {
+    line-height: 4rem;
+    width: auto;
+    height: 4rem;
+    padding-right: 0.4rem;
+    padding-left: 0.2rem;
+    min-width: 3.4rem;
+    border-radius: 2rem;
+    font-size: 3rem;
+    background-color: var(--fg);
+    color: var(--dp);
+    font-weight: 700;
+    position: relative;
+}
+
+.outcome .rank::before {
+    content: '№';
+    font-size: 1rem;
+    line-height: 2rem;
+    position: relative;
+    margin-right: 0.2rem;
+    top: -0.8rem;
+}
+
+.outcome .points {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
 }
