@@ -124,26 +124,6 @@ where
 order by
   id asc;
 
--- @query iter_team_votes(team_id: i64) ->* Vote
-select
-    points      -- :i64
-  , voter_email -- :str
-from
-  votes
-where
-  team_id = :team_id
-order by
-  points desc;
-
--- Return how many points the voter gave to the given team.
--- @query get_team_vote_for(team_id: i64, voter_email: str) ->? i64
-select
-  points
-from
-  votes
-where
-  (team_id = :team_id) and (voter_email = :voter_email);
-
 -- @query iter_member_teams(member_email: str) ->* i64
 select
   team_id
@@ -174,3 +154,30 @@ insert into
   votes (voter_email, team_id, points)
 values
   (:voter_email, :team_id, :points);
+
+-- @query iter_team_votes(team_id: i64) ->* Vote
+select
+    points      -- :i64
+  , voter_email -- :str
+from
+  votes
+where
+  team_id = :team_id
+order by
+  points desc;
+
+-- Return how many points the voter gave to the given team.
+-- @query get_team_vote_for(team_id: i64, voter_email: str) ->? i64
+select
+  points
+from
+  votes
+where
+  (team_id = :team_id) and (voter_email = :voter_email);
+
+-- Return the number of users who voted.
+-- @query count_voters() ->1 i64
+select
+  count(distinct voter_email)
+from
+  votes;

@@ -12,9 +12,13 @@ use crate::{Phase, Response, User};
 enum TeamData {
     None,
     /// The points that the current user awarded to this team.
-    UserVote { points: i64 },
+    UserVote {
+        points: i64,
+    },
     /// All the votes for this team.
-    AllVotes { votes: Vec<db::Vote> },
+    AllVotes {
+        votes: Vec<db::Vote>,
+    },
 }
 
 struct TeamEntry {
@@ -110,17 +114,18 @@ fn view_email<'a>(config: &Config, email: &'a str) -> &'a str {
     }
 }
 
-fn view_index(
-    config: &Config,
-    user: &User,
+struct IndexData<'a> {
     phase: Phase,
-    teams: &[TeamEntry],
-    cheaters: &[String],
-) -> Markup {
+    teams: &'a [TeamEntry],
+    cheaters: &'a [String],
+    voter_count: u32,
+}
+
+fn view_index(config: &Config, user: &User, data: IndexData) -> Markup {
     // During the vote phase, we tweak the message depending on whether the user
     // has voted or not, so we need to know if they have any.
     let mut did_vote = false;
-    for team in teams {
+    for team in data.teams {
         match team.data {
             TeamData::UserVote { points } if points != 0 => {
                 did_vote = true;
@@ -139,24 +144,34 @@ fn view_index(
             p {
                 "Welcome to the hackaton support system, " (user.email) "."
             }
-            (view_phases(phase))
+            (view_phases(data.phase))
             @if user.is_admin {
                 (view_phase_admin_form(config))
             }
-            @if matches!(phase, Phase::Evaluation) {
-                (view_voting_help(config))
-            }
-            @if !cheaters.is_empty() {
-                h2 { "Hall of Shame" }
-                p { "The following people tried to cheat and vote for themselves:" }
-                ul {
-                    @for cheater_email in cheaters {
-                        li { (view_email(config, &cheater_email)) }
+            @if matches!(data.phase, Phase::Evaluation | Phase::Revelation | Phase::Celebration) {
+                h2 { "Voting Turnout" }
+                p {
+                    @match data.voter_count {
+                        0 => "Nobody has cast a vote yet.",
+                        1 => "One person has cast their vote.",
+                        n => { (n) " people have cast their vote." },
+                    }
+                }
+                @if !data.cheaters.is_empty() {
+                    h2 { "Hall of Shame" }
+                    p { "The following people tried to cheat and vote for themselves:" }
+                    ul {
+                        @for cheater_email in data.cheaters {
+                            li { (view_email(config, &cheater_email)) }
+                        }
                     }
                 }
             }
+            @if matches!(data.phase, Phase::Evaluation) {
+                (view_voting_help(config))
+            }
             h2 { "Teams" }
-            @if matches!(phase, Phase::Registration) {
+            @if matches!(data.phase, Phase::Registration) {
                 p {
                     details {
                         summary { "Add a new team" }
@@ -164,13 +179,13 @@ fn view_index(
                     }
                 }
             }
-            @if matches!(phase, Phase::Evaluation) {
+            @if matches!(data.phase, Phase::Evaluation) {
                 form
                     action=(format!("{}/vote", config.server.prefix))
                     method="post"
                 {
-                    @for entry in teams {
-                        (view_team(config, user, phase, entry))
+                    @for entry in data.teams {
+                        (view_team(config, user, data.phase, entry))
                     }
                     div .score-float {
                         h2 { "Your Vote" }
@@ -207,13 +222,13 @@ fn view_index(
                 script {
                     "const coinsToSpend = " (config.app.coins_to_spend) ";\n"
                     "const inputBoxes = [";
-                    @for entry in teams { "input" (entry.team.id) ", " }
+                    @for entry in data.teams { "input" (entry.team.id) ", " }
                     "];\n"
                     (get_vote_script())
                 }
             } @else {
-                @for entry in teams {
-                    (view_team(config, user, phase, entry))
+                @for entry in data.teams {
+                    (view_team(config, user, data.phase, entry))
                 }
             }
         }
@@ -430,7 +445,9 @@ pub fn handle_index(
             Phase::Registration | Phase::Presentation => TeamData::None,
             Phase::Evaluation => {
                 let points = db::get_team_vote_for(tx, team.id, &user.email)?;
-                TeamData::UserVote { points: points.unwrap_or(0) }
+                TeamData::UserVote {
+                    points: points.unwrap_or(0),
+                }
             }
             Phase::Revelation | Phase::Celebration => {
                 // In the revelation phase, only the admin gets to see the
@@ -454,8 +471,16 @@ pub fn handle_index(
     }
 
     let cheaters = db::iter_cheaters(tx)?.collect::<Result<Vec<_>, _>>()?;
+    let voter_count = db::count_voters(tx)?;
 
-    let body = view_index(config, &user, phase, &team_entries, &cheaters);
+    let data = IndexData {
+        phase,
+        teams: &team_entries,
+        cheaters: &cheaters,
+        voter_count: voter_count as u32,
+    };
+
+    let body = view_index(config, &user, data);
     Ok(respond_html(body))
 }
 
