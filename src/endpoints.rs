@@ -1,4 +1,6 @@
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::Hasher;
 use std::str::FromStr;
 
 use maud::{html, Markup, DOCTYPE};
@@ -518,6 +520,23 @@ pub fn handle_index(
             rank: 0,
         };
         team_entries.push(entry);
+    }
+
+    // During the voting phase, shuffle all teams randomly for every user. This
+    // is to try and eliminate (or at least average out) bias for voting for the
+    // first or last entry. The sort key is pseudorandom but deterministic.
+    // Every user gets a different order, but for that user, the order is the
+    // same on every page load, even across restarts of the binary.
+    if matches!(phase, Phase::Evaluation) {
+        for entry in team_entries.iter_mut() {
+            let mut hasher = DefaultHasher::new();
+            hasher.write(user.email.as_bytes());
+            hasher.write_i64(entry.team.id);
+            // We abuse the total points field to store the sort key in,
+            // it's not used during the voting phase anyway.
+            entry.total_points = hasher.finish() as i64;
+        }
+        team_entries.sort_by_key(|entry| entry.total_points);
     }
 
     // If we are displaying points, sort and compute the rank.
