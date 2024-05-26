@@ -371,7 +371,7 @@ pub fn iter_teams<'i, 't, 'a>(tx: &'i mut Transaction<'t, 'a>) -> Result<Iter<'i
         from
           teams
         order by
-          lower(name) asc;
+          id desc;
         "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),
@@ -552,7 +552,8 @@ pub fn iter_team_votes<'i, 't, 'a>(
         where
           team_id = :team_id
         order by
-          points desc;
+          points desc,
+          voter_email asc;
         "#;
     let statement = match tx.statements.entry(sql.as_ptr()) {
         Occupied(entry) => entry.into_mut(),

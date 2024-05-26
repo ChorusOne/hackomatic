@@ -112,7 +112,7 @@ select
 from
   teams
 order by
-  lower(name) asc;
+  id desc;
 
 -- @query iter_team_members(team_id: i64) ->* str
 select
