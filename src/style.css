@@ -99,6 +99,10 @@ details form {
     margin-top: 0.5rem;
 }
 
+details summary {
+    cursor: default;
+}
+
 input, button {
     padding: 0.3rem;
     padding-left: 0.3rem;
