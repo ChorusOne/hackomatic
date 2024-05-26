@@ -279,7 +279,7 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
                             id=(format!("input{}", entry.team.id))
                             name=(format!("team-{}", entry.team.id))
                             type="number"
-                            min=(-max_points)
+                            min="0"
                             max=(max_points)
                             value=(user_points);
                     }
@@ -782,6 +782,14 @@ pub fn handle_vote(
             // No need to pollute the database with zero votes that don't do
             // anything.
             continue;
+        }
+        if *points < 0 {
+            return Ok(bad_request(
+                "While the math works fine if we allow awarding negative points, \
+                are you really that kind of person who chooses to spend their coins \
+                on destroying somebody else’s reputation, \
+                rather than just voting for a different team?"
+            ))
         }
         db::insert_vote(tx, &user.email, *team_id, *points)?;
     }
