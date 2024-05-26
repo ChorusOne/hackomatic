@@ -77,8 +77,13 @@ values
 returning
   id;
 
--- @query delete_team(team_id: i64)
+-- @begin delete_team(team_id: i64)
+-- Normally during team manipulation there are no votes, but if the admin goes
+-- back and forth between phases and there were already votes on this team, then
+-- drop those votes.
+delete from votes where team_id = :team_id;
 delete from teams where id = :team_id;
+-- @end
 
 -- @query add_team_member(team_id: i64, member_email: str)
 insert into
