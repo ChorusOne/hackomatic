@@ -421,6 +421,80 @@ pub fn iter_team_members<'i, 't, 'a>(
     Ok(result)
 }
 
+#[derive(Debug)]
+pub struct Vote {
+    pub points: i64,
+    pub voter_email: String,
+}
+
+pub fn iter_team_votes<'i, 't, 'a>(
+    tx: &'i mut Transaction<'t, 'a>,
+    team_id: i64,
+) -> Result<Iter<'i, 'a, Vote>> {
+    let sql = r#"
+        select
+            points
+          , voter_email
+        from
+          votes
+        where
+          team_id = :team_id
+        order by
+          points desc;
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, team_id)?;
+    let decode_row = |statement: &Statement| {
+        Ok(Vote {
+            points: statement.read(0)?,
+            voter_email: statement.read(1)?,
+        })
+    };
+    let result = Iter {
+        statement,
+        decode_row,
+    };
+    Ok(result)
+}
+
+/// Return how many points the voter gave to the given team.
+pub fn get_team_vote_for(
+    tx: &mut Transaction,
+    team_id: i64,
+    voter_email: &str,
+) -> Result<Option<i64>> {
+    let sql = r#"
+        select
+          points
+        from
+          votes
+        where
+          (team_id = :team_id) and (voter_email = :voter_email);
+        "#;
+    let statement = match tx.statements.entry(sql.as_ptr()) {
+        Occupied(entry) => entry.into_mut(),
+        Vacant(vacancy) => vacancy.insert(tx.connection.prepare(sql)?),
+    };
+    statement.reset()?;
+    statement.bind(1, team_id)?;
+    statement.bind(2, voter_email)?;
+    let decode_row = |statement: &Statement| Ok(statement.read(0)?);
+    let result = match statement.next()? {
+        Row => Some(decode_row(statement)?),
+        Done => None,
+    };
+    if result.is_some() {
+        if statement.next()? != Done {
+            panic!("Query 'get_team_vote_for' should return at most one row.");
+        }
+    }
+    Ok(result)
+}
+
 pub fn iter_member_teams<'i, 't, 'a>(
     tx: &'i mut Transaction<'t, 'a>,
     member_email: &str,

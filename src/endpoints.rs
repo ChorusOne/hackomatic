@@ -8,9 +8,19 @@ use crate::config::Config;
 use crate::database as db;
 use crate::{Phase, Response, User};
 
+/// Additional data to display with the team, depending on the phase.
+enum TeamData {
+    None,
+    /// The points that the current user awarded to this team.
+    UserVote { points: i64 },
+    /// All the votes for this team.
+    AllVotes { votes: Vec<db::Vote> },
+}
+
 struct TeamEntry {
     team: db::Team,
     member_emails: Vec<String>,
+    data: TeamData,
 }
 
 fn respond_html(markup: Markup) -> Response {
@@ -190,6 +200,10 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
     // Due to quadratic cost, the max points you can spend is the square root
     // of the coins you have.
     let max_points = (config.app.coins_to_spend as f32).sqrt().floor() as i32;
+    let user_points = match entry.data {
+        TeamData::UserVote { points } => points,
+        _ => 0,
+    };
 
     html! {
         // We give teams an anchor so we can refer to it from a
@@ -219,7 +233,7 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
                             id=(format!("input{}", entry.team.id))
                             name=(format!("team-{}", entry.team.id))
                             disabled
-                            value="0"
+                            value=(user_points)
                             title="You can’t vote for this team because you are a member.";
                     } @else {
                         input
@@ -228,8 +242,13 @@ fn view_team(config: &Config, user: &User, phase: Phase, entry: &TeamEntry) -> M
                             type="number"
                             min=(-max_points)
                             max=(max_points)
-                            value="0";
+                            value=(user_points);
                     }
+                    // Add a span where js will put the computed cost of this
+                    // vote. Don't bother rendering it server side too, we'll
+                    // just run the js after page load, and if you view the page
+                    // with js disabled, it's better to not show anything than
+                    // to show the wrong number.
                     span .cost id=(format!("cost{}", entry.team.id));
                 }
             }
@@ -377,12 +396,34 @@ pub fn handle_index(
     user: &User,
 ) -> db::Result<Response> {
     let phase = crate::load_phase(tx)?;
+
     let teams = db::iter_teams(tx)?.collect::<Result<Vec<_>, _>>()?;
     let mut team_entries = Vec::with_capacity(teams.len());
+
     for team in teams {
         let members = db::iter_team_members(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
+        let data = match phase {
+            Phase::Registration | Phase::Presentation => TeamData::None,
+            Phase::Evaluation => {
+                let points = db::get_team_vote_for(tx, team.id, &user.email)?;
+                TeamData::UserVote { points: points.unwrap_or(0) }
+            }
+            Phase::Revelation | Phase::Celebration => {
+                // In the revelation phase, only the admin gets to see the
+                // totals so that people can't run ahead and check who won
+                // during the ceremony.
+                if matches!(phase, Phase::Celebration) || user.is_admin {
+                    let votes = db::iter_team_votes(tx, team.id)?.collect::<Result<Vec<_>, _>>()?;
+                    TeamData::AllVotes { votes: votes }
+                } else {
+                    TeamData::None
+                }
+            }
+        };
+
         let entry = TeamEntry {
             team,
+            data,
             member_emails: members,
         };
         team_entries.push(entry);
