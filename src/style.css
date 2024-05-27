@@ -59,7 +59,7 @@ h2 {
     font-weight: 800;
 }
 
-ol, ul, ol + p, ol + form {
+ol, ul, ol + p, ol + form, ul + p {
     margin-top: 1rem;
 }
 

@@ -448,6 +448,11 @@ fn view_voting_help(config: &Config) -> Markup {
                 "1 × " strong { "2" } " (4)"
             }
         }
+        p {
+            "Depending on how you vote, "
+            "it may not be possible spend exactly " (config.app.coins_to_spend) " coins. "
+            "It is okay to leave a few coins unspent."
+        }
     }
 }
 
