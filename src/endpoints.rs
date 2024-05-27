@@ -644,6 +644,11 @@ pub fn handle_create_team(
     user: &User,
     body: &str,
 ) -> db::Result<Response> {
+    let phase = crate::load_phase(tx)?;
+    if !matches!(phase, Phase::Registration) {
+        return Ok(bad_request("Registration is closed."));
+    }
+
     let mut team_name = String::new();
     let mut description = String::new();
 
@@ -716,6 +721,11 @@ pub fn handle_delete_team(
     user: &User,
     body: &str,
 ) -> db::Result<Response> {
+    let phase = crate::load_phase(tx)?;
+    if !matches!(phase, Phase::Registration) {
+        return Ok(bad_request("Registration is closed, teams cannot be changed."));
+    }
+
     let team_id = match get_body_team_id(body) {
         Ok(id) => id,
         Err(err_response) => return Ok(err_response),
@@ -744,6 +754,11 @@ pub fn handle_leave_team(
     user: &User,
     body: &str,
 ) -> db::Result<Response> {
+    let phase = crate::load_phase(tx)?;
+    if !matches!(phase, Phase::Registration) {
+        return Ok(bad_request("Registration is closed, teams cannot be changed."));
+    }
+
     let team_id = match get_body_team_id(body) {
         Ok(id) => id,
         Err(err_response) => return Ok(err_response),
@@ -774,6 +789,11 @@ pub fn handle_join_team(
     user: &User,
     body: &str,
 ) -> db::Result<Response> {
+    let phase = crate::load_phase(tx)?;
+    if !matches!(phase, Phase::Registration) {
+        return Ok(bad_request("Registration is closed, teams cannot be changed."));
+    }
+
     let team_id = match get_body_team_id(body) {
         Ok(id) => id,
         Err(err_response) => return Ok(err_response),
@@ -836,6 +856,11 @@ pub fn handle_vote(
     user: &User,
     body: &str,
 ) -> db::Result<Response> {
+    let phase = crate::load_phase(tx)?;
+    if !matches!(phase, Phase::Evaluation) {
+        return Ok(bad_request("Voting is closed, you can’t vote right now."));
+    }
+
     // Map team id to points. Would be nice to do a newtype wrapper for teams
     // but I can't be bothered right now.
     let mut teams_points: HashMap<i64, i64> = HashMap::new();
