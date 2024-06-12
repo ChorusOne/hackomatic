@@ -605,7 +605,7 @@ pub fn handle_index(
 /// because Tomás and Mikołaj are valid non-ASCII names. This is very crude but
 /// it'll do.
 ///
-/// Returns the offending character on error.
+/// Returns a description of the violaton on error.
 fn validate_string(label: &'static str, max_len: usize, input: &str) -> Result<(), String> {
     if input.is_empty() {
         return Err(format!("{label} must not be empty."));
