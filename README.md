@@ -3,7 +3,11 @@
 The Hack-o-matic is a simple webapp that facilitates remote and on-site
 hackathons. It handles team registration, quadratic voting, and presenting the
 outcome of the vote. It needs an external system such as [OAuth2 Proxy][o2proxy]
-for user management and authentication. A hackathon has the following phases:
+for user management and authentication.
+
+<img alt="Registration screenshot" src="screenshots/registration.png" width="49%"> <img alt="Celebration screenshot" src="screenshots/celebration.png" width="49%">
+
+A hackathon has the following phases:
 
  * **Registration** — Any user can start a team. Teams have a name and short
    description. Users can also join teams that others have created.
