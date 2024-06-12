@@ -736,17 +736,14 @@ pub fn handle_delete_team(
         Err(err_response) => return Ok(err_response),
     };
 
-    println!("Before remove.");
     // Remove ourselves from the team first.
     db::remove_team_member(tx, team_id, &user.email)?;
-    println!("After remove.");
 
     // Confirm that the team is now empty.
     for _member in db::iter_team_members(tx, team_id)? {
         // Returning an error status code will also roll back the transaction.
         return Ok(conflict("The team is not empty, we can't delete it yet."));
     }
-    println!("Before delete.");
 
     db::delete_team(tx, team_id)?;
 
