@@ -728,7 +728,9 @@ pub fn handle_delete_team(
 ) -> db::Result<Response> {
     let phase = crate::load_phase(tx)?;
     if !matches!(phase, Phase::Registration) {
-        return Ok(bad_request("Registration is closed, teams cannot be changed."));
+        return Ok(bad_request(
+            "Registration is closed, teams cannot be changed.",
+        ));
     }
 
     let team_id = match get_body_team_id(body) {
@@ -758,7 +760,9 @@ pub fn handle_leave_team(
 ) -> db::Result<Response> {
     let phase = crate::load_phase(tx)?;
     if !matches!(phase, Phase::Registration) {
-        return Ok(bad_request("Registration is closed, teams cannot be changed."));
+        return Ok(bad_request(
+            "Registration is closed, teams cannot be changed.",
+        ));
     }
 
     let team_id = match get_body_team_id(body) {
@@ -793,7 +797,9 @@ pub fn handle_join_team(
 ) -> db::Result<Response> {
     let phase = crate::load_phase(tx)?;
     if !matches!(phase, Phase::Registration) {
-        return Ok(bad_request("Registration is closed, teams cannot be changed."));
+        return Ok(bad_request(
+            "Registration is closed, teams cannot be changed.",
+        ));
     }
 
     let team_id = match get_body_team_id(body) {
