@@ -2,6 +2,9 @@
 name = "hackomatic"
 version = "0.1.0"
 edition = "2021"
+authors = ["Chorus One <tech@chorus.one>"]
+license = "Apache-2.0"
+publish = false
 
 [dependencies]
 form_urlencoded = "1.2.1"
