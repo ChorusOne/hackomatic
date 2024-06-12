@@ -673,7 +673,7 @@ pub fn handle_create_team(
     }
 
     let n_teams_by_user = db::count_teams_by_creator(tx, &user.email)?;
-    if n_teams_by_user > config.app.max_teams_per_creator as i64 {
+    if n_teams_by_user >= config.app.max_teams_per_creator as i64 {
         return Ok(bad_request(format!(
             "You already created {n_teams_by_user} teams, chill out!"
         )));
